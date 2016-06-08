@@ -1,0 +1,16 @@
+# generated files
+app/app
+phys/**
+!phys/Makefile
+sim/work/
+
+sim/*
+# all generated files in ./sim/ except
+!sim/*.cpp
+!sim/Makefile
+!sim/runsim
+
+# ignore all logs everywhere
+**/*.log
+
+

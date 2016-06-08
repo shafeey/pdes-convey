@@ -1,0 +1,23 @@
+A Parallel Discrete Event Simulation (PDES) system implemented on a Convey HC-2ex coprocessor.
+
+This project, at this moment,  implements a rudimentary form of the phold algorithm.
+
+USAGE INSTRUCTIONS:
+- To set up the environment:
+
+    source /opt/convey/pdk2/<rev>/settings.(c)sh
+
+- To compile the application:
+
+    cd app
+    make
+
+- To run the simulation:
+
+    cd /sim
+    ./runsim
+
+- To build the personality:
+
+    cd phys
+    make
