@@ -3,6 +3,8 @@ app/app
 phys/**
 !phys/Makefile
 sim/work/
+verilog/work/
+verilog/transcript
 
 sim/*
 # all generated files in ./sim/ except

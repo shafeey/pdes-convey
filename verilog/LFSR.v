@@ -1,47 +1,38 @@
-module LFSR (
-    input clock,
-    input reset,
-	input [13:0] seed,
-    output [13:0] rnd
-    );
- 
-reg [13:0] random, random_next, random_done;
-reg [3:0] count, count_next; //to keep track of the shifts
+/*
+	LFSR module uses a 16 bit Linear Feedback Shift Register with 
+	a Fibonacci scheme. It computes NBITS bits at once instead of
+	one bit at a time.
+	It generates the next random value only when the 'next' control
+	is asserted.
+*/
 
-wire feedback = random[13] ^ random[4] ^ random[2] ^ random[0];
- 
-always @ (posedge clock or posedge reset)
-begin
- if (reset)
- begin
-  random <= seed; //An LFSR cannot have an all 0 state, thus reset to FF
-  count <= 0;
- end
-  
- else
- begin
-  random <= random_next;
-  count <= count_next;
- end
+module LFSR
+	#(parameter NBITS = 8) //Number of bits in each generation
+	(
+    input clk,
+    input rst_n,
+	input next,
+	input [15:0] seed,
+    output [NBITS-1:0] rnd
+	);
+
+	
+reg [15:0] data, data_next;
+
+always @* begin
+	data_next = data;
+	repeat(NBITS) begin : taps
+		data_next = {data_next[14:0],
+						(data_next[15] ^ data_next[14] ^ data_next[12] ^ data_next[3])
+					};
+	end
 end
- 
-always @ (*)
-begin
- random_next = random; //default state stays the same
- count_next = count;
-   
-  random_next = {random[12:0], feedback}; //shift left the xor'd every posedge clock
-  count_next = count + 1;
- 
- if (count == 14)
- begin
-  count_next = 0;
-  random_done = random; //assign the random number to output after 13 shifts
- end
-  
+
+always @(posedge clk or negedge rst_n) begin
+	data <= (!rst_n) ? seed :	// Initialize with a random seed provided by the parent module
+				next ? data_next : data;
 end
- 
- 
-assign rnd = random_done;
- 
+
+assign rnd = data[NBITS-1:0];
+
 endmodule
