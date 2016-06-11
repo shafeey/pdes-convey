@@ -39,18 +39,23 @@ module phold_core
 				WORKING = 1'd1;
 				
 	reg c_state, r_state;
+	reg c_event_ready;
 	wire finished;
 	
 	always@* begin
 		c_state = r_state;
+		c_event_ready = new_event_ready;
 		case(r_state)
 		IDLE : begin
 			if(event_valid)
 				c_state = WORKING;
+				c_event_ready = 0;
 		end
 		WORKING: begin
-			if (finished)
+			if (finished) begin
 				c_state = IDLE;
+				c_event_ready = 1;
+			end	
 		end
 		endcase
 	end
@@ -62,7 +67,7 @@ module phold_core
 		counter <= (rst_n) ? 
 						(r_state == WORKING ? counter + 1 : 3'b0) : 3'b0; 
 		
-		new_event_ready <= rst_n ? finished : 0;
+		new_event_ready <= rst_n ? c_event_ready : 0;
 		new_event_time <= local_time + 10 + rnd [4:0]; // Keep at least 10 units time gap between events
 		new_event_target <= rnd[NRB-1:5];
 	end
