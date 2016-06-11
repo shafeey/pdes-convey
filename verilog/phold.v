@@ -167,17 +167,3 @@ phold_LP LP3 (CLK, rst_n, id[3], rnd_LP[3], time_LP[3], new_event_LP[3]);
 
 endmodule
 
-module phold_LP(
-	input CLK,
-	input rst_n,
-	input [1:0] id,
-	input [6:0] rnd,
-	input [13:0] local_time,
-	output reg [15:0] event_out
-);
-	always@(posedge CLK) begin
-		event_out <= {local_time + rnd[4:0] + 10, rnd[6:5] }; //10 = minimum delay for next event
-		// Use 5 LSB as time increment, 2 MSB as recipient LP ID.
-	end
-
-endmodule
