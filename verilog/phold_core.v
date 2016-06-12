@@ -19,7 +19,10 @@ module phold_core
 	// New generated event
 	output reg [15:0] new_event_time,
 	output reg [NIDB-1:0] new_event_target,
-	output reg new_event_ready
+	output reg new_event_ready,
+	
+	output ready,
+	input wire ack
 );
 	
 	reg [NRB-1:0] rnd;
@@ -35,10 +38,11 @@ module phold_core
 		end
 	end
 
-	localparam 	IDLE = 1'd0,
-				WORKING = 1'd1;
+	localparam 	IDLE = 2'd0,
+				WORKING = 2'd1,
+				WAITING = 2'd2;
 				
-	reg c_state, r_state;
+	reg [1:0] c_state, r_state;
 	reg c_event_ready;
 	wire finished;
 	
@@ -47,18 +51,26 @@ module phold_core
 		c_event_ready = new_event_ready;
 		case(r_state)
 		IDLE : begin
-			if(event_valid)
+			if(event_valid) begin
 				c_state = WORKING;
-				c_event_ready = 0;
+			end
 		end
 		WORKING: begin
 			if (finished) begin
-				c_state = IDLE;
+				c_state = WAITING;
 				c_event_ready = 1;
 			end	
 		end
+		WAITING: begin // Wait for the generated event to be received
+			if (ack) begin
+				c_state = IDLE;
+				c_event_ready = 0;
+			end
+		end
 		endcase
 	end
+	
+	assign ready = (r_state == IDLE);
 	
 	
 	reg [2:0] counter;

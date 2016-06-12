@@ -13,7 +13,7 @@ reg [NRB-1:0] random_in;
 wire [15:0] new_event_time;
 wire [NIDB-1:0] new_event_target;
 wire new_event_ready;
-
+reg ack;
 
 initial begin
 	clk = 0;
@@ -31,6 +31,7 @@ initial begin
 	global_time = 0;
 	event_id = 0;
 	event_time = 0;
+	ack = 0;
 	
 	#10 rst_n = 0;
 	#20 rst_n = 1;
@@ -45,6 +46,11 @@ initial begin
 	event_valid = 0;
 	
 	@(posedge new_event_ready)
+	@(posedge clk)
+	ack = 1; // event received
+	
+	@(posedge clk)
+	ack = 0;
 	event_id = 4;
 	event_time = 10;
 	event_valid = 1;
@@ -53,12 +59,30 @@ initial begin
 	event_valid = 0;
 	
 	@(posedge new_event_ready)
+	@(posedge clk)
 	event_id = 0;
 	event_time = 15;
+	
+	#20
+	@(posedge clk)
+	ack = 1;
+	
+	@(posedge clk)
+	ack = 0;
+
+	@(posedge clk)
 	event_valid = 1;
 	
 	@(posedge clk)
 	event_valid = 0;
+	
+	@(posedge new_event_ready)
+	@(posedge clk)
+
+	ack = 1; // event received
+	
+	@(posedge clk)
+	ack = 0;
 end
 
 
@@ -79,6 +103,8 @@ phold_core
    .random_in        ( random_in ),
    .new_event_time   ( new_event_time ),
    .new_event_target ( new_event_target ),
-   .new_event_ready  ( new_event_ready )
+   .new_event_ready  ( new_event_ready ),
+   .ready            (),
+   .ack              ( ack )
 );
 endmodule
