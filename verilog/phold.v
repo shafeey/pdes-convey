@@ -94,10 +94,10 @@ assign new_event = (r_state == INIT) ? {14'b0, init_counter} :
 
 // Debug displays						
 always @(posedge clk) begin
-	if (deq) $display("Event sent to CORE %d,\ttime: %d, LP: %d",
-						send_egnt, event_time, event_id);
-	if (enq) $display("\t\t\t\t\t\tNew event from CORE %d,\ttime: %d, LP: %d",
-						rcv_egnt, new_event[15:3], new_event[2:0]);
+	if (deq) $display("GVT: %d, \tEvent sent to CORE %d,\ttime: %d, LP: %d",
+						gvt, send_egnt, event_time, event_id);
+	if (enq) $display("GVT: %d, \t\t\t\t\t\tNew event from CORE %d,\ttime: %d, LP: %d",
+						gvt, rcv_egnt, new_event[15:3], new_event[2:0]);
 end
 
 
@@ -187,5 +187,41 @@ LFSR prng (
    .seed  ( seed ),
    .rnd   ( random_in )
 );
+
+/*
+ *	GVT calculation
+ */
+ reg [13:0] loc_times[3:0];
+ reg [3:0] core_act;
+ wire [14:0] t_gvt;
+ integer l_t_i;
+
+ always @(posedge clk or negedge rst_n) begin
+	if(~rst_n) begin
+		gvt <= 0;
+		core_act <= 0;
+		for(l_t_i = 0; l_t_i <4; l_t_i = l_t_i + 1) loc_times[l_t_i] <= 0;
+	end
+	else begin
+		if(deq) begin
+			loc_times[send_egnt] <= event_time;
+			core_act[send_egnt] <= 1;
+		end
+		else if(enq) begin
+			core_act[rcv_vld] <= 0;
+		end
+		gvt <= (r_state == RUNNING) ? t_gvt[13:0] : gvt;
+	end
+end
+assign t_gvt = minima( minima({core_act[0], loc_times[0]} , {core_act[1], loc_times[1]}),
+							minima({core_act[2], loc_times[2]} , {core_act[3], loc_times[3]})
+						);
+
+function [14:0] minima;
+input [14:0] i0, i1;
+begin
+	minima = i0 < i1 ? i0 : i1;
+end
+endfunction
 
 endmodule
