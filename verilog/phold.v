@@ -32,7 +32,7 @@ always @* begin : state_transitions
 	READY:
 		c_state = RUNNING;
 	RUNNING:
-		if(gvt > 14'd12000) begin
+		if(gvt > 13'd8000) begin
 			c_state = FINISHED;
 			c_rtn_vld = 1;
 		end
