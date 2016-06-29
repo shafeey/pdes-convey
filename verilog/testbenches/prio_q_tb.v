@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-`define DWIDTH 14 // MSB of DATA BUS
+`define DWIDTH 16 // MSB of DATA BUS
 `define HDEPTH 5	// Depth of heap
 
 module prio_q_tb( );
@@ -9,6 +9,8 @@ module prio_q_tb( );
     reg [`DWIDTH-1:0] inp_data;
     wire [`DWIDTH-1:0] out_data;
     wire [`HDEPTH-1:0] count;
+	
+	reg done;
 	
 	reg [`DWIDTH-1:0] min;
 	
@@ -45,12 +47,30 @@ module prio_q_tb( );
 	
 	always
 		#5 clk = !clk;
+
+integer f;		
+initial begin
+	#0;
+	f = $fopen("q_ops.txt");
+	$monitoron;
+	@(posedge done)
+	$monitoroff;
+	#10;
+	$fclose(f);
+end
+
+initial begin
+	$fmonitor(f, "clk:%d, enq: %d, deq:%d, in:%d, out:%d, count:%d",
+					clk, enq, deq, inp_data, out_data, count);
+end
 	
-	initial begin
-		inp_data = 'd0;
-		enq = 'b0;
-		deq = 'b0;
-		#20
+initial begin
+	inp_data = 'd0;
+	enq = 'b0;
+	deq = 'b0;
+	done = 0;
+	
+	#20
 		
 @(negedge clk)
 	enq = 1;
@@ -154,7 +174,8 @@ module prio_q_tb( );
 @(negedge clk)
 	enq = 0;
 	deq = 0;
-						
-	end
+@(negedge clk)	
+	done = 1;		
+end
 	
 endmodule
