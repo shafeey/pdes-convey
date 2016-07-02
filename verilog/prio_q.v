@@ -356,37 +356,6 @@ module prio_q(
 		end
 	end
 	
-/* 	wire [`HD-1:0] index4;
-	assign index4 = path34[`HD-1:`HD-4]; // get node index to operate on
-		
-	always @ (posedge CLK or negedge rst_n) begin // Level 4
-		if(!rst_n) begin : reset_L4
-			integer i;
-			for (i = 0; i < 16; i = i+1)	L4[i] <= 0;
-			prop_data5 <= 0;
-		end
-		else begin
-			if (prop_data4) begin // New data descending from upper level
-				
-				if(dest_level_old == 'h4) begin	// Won't propagate to next level
-					prop_data5 <= 0;	
-					L4[index4] <= tmp4;
-				end
-				else begin	// Compare and pass larger value to next level
-					prop_data5 <= 1;
-					if(tmp4 < L4[index4]) begin
-						tmp5 <= L4[index4];
-						L4[index4] <= tmp4;
-					end
-					else tmp5 <= tmp4;
-				end
-			end
-			else begin
-				prop_data5 <= 0;
-			end
-		end
-	end */
-	
 	function integer clogb2;
 		input [`HD-1:0] value;
 		integer 	i;
