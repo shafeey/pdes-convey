@@ -142,6 +142,21 @@ module prio_q(
 	assign del_index1 = {1'b1, del_path1};
 	reg del_next2;
 	reg [1:0] del_path2;
+		
+	reg [`DW-1:0] c_tmp2, c_tmp3;
+	reg [`DW-1:0]	c_L1node, c_L2node;
+	reg c_del_next2, c_del_next3;
+	reg c_del_child_id2, c_del_child_id3; 
+	
+	always @* begin : comb // Combinational logic between levels
+		delete_comb( 	del_index1, count,
+							L2[del_path1*2], L2[del_path1*2+1],
+							tmp1, c_tmp2,
+							c_L1node,
+							c_del_next2, c_del_child_id2
+		);
+	end
+	
 	
 	always @ (negedge CLK or negedge rst_n) begin // Level 1
 		if(!rst_n) begin : reset_L1
@@ -167,52 +182,11 @@ module prio_q(
 				del_next2 <= 0;
 			end
 			else if (del_next1 == 1) begin
-				if ( del_index1*2 + 1 <= count) begin
-					if( L2[del_path1*2] < L2 [del_path1*2 + 1]) begin
-						if (L2[del_path1*2] < tmp1) begin
-							L1[del_path1] <= L2[del_path1*2];
-							del_path2 <= {del_path1, 1'b0};
-							del_next2 <= 1;
-							tmp2 <= tmp1;
-						end
-						else begin
-							L1[del_path1] <= tmp1;
-							del_next2 <= 0;
-							tmp2 <= 0; //
-						end
-					end
-					else begin
-						if (L2[del_path1*2 + 1] < tmp1) begin
-							L1[del_path1] <= L2[del_path1*2 + 1];
-							del_path2 <= {del_path1, 1'b1};
-							del_next2 <= 1;
-							tmp2 <= tmp1;
-						end
-						else begin
-							L1[del_path1] <= tmp1;
-							del_next2 <= 0;
-							tmp2 <= 0; //
-						end
-					end
-				end
-				else if ( del_index1*2 <= count) begin
-					if (L2[del_path1*2] < tmp1) begin
-						L1[del_path1] <= L2[del_path1*2];
-						del_path2 <= {del_path1, 1'b0};
-						del_next2 <= 1;
-						tmp2 <= tmp1;
-					end
-					else begin
-						L1[del_path1] <= tmp1;
-						del_next2 <= 0;
-						tmp2 <= 0; // 
-					end
-				end
-				else begin
-					L1[del_path1] <= tmp1;
-					del_next2 <= 0;
-					tmp2 <= 0; //
-				end
+				L1[del_path1] <= c_L1node;
+				tmp2 <= c_tmp2;
+				del_next2 <= c_del_next2;
+				del_path2 <= {del_path1, c_del_child_id2};
+				
 				prop_data2 <= 0;
 			end
 			else begin
@@ -230,7 +204,16 @@ module prio_q(
 	reg del_next3;
 	reg [2:0] del_path3;
 	wire [`HD-1:0] count_del;
-	assign count_del = count + !{deq};
+	assign count_del = count - deq;
+	
+	always @* begin
+		delete_comb(	del_index2, count_del,
+							L3[del_path2*2], L3[del_path2*2+1],
+							tmp2, c_tmp3,
+							c_L2node,
+							c_del_next3, c_del_child_id3
+		);
+	end
 	
 	always @ (posedge CLK or negedge rst_n) begin // Level 2
 		if(!rst_n) begin : reset_L2
@@ -257,52 +240,11 @@ module prio_q(
 				end
 			end
 			else if (del_next2 == 1) begin
-				if ( del_index2*2 + 1 < count_del) begin
-					if( L3[del_path2*2] < L3 [del_path2*2 + 1]) begin
-						if (L3[del_path2*2] < tmp2) begin
-							L2[del_path2] <= L3[del_path2*2];
-							del_path3 <= {del_path2, 1'b0};
-							del_next3 <= 1;
-							tmp3 <= tmp2;
-						end
-						else begin
-							L2[del_path2] <= tmp2;
-							del_next3 <= 0;
-							tmp3 <= 0; //
-						end
-					end
-					else begin
-						if (L3[del_path2*2 + 1] < tmp2) begin
-							L2[del_path2] <= L3[del_path2*2 + 1];
-							del_path3 <= {del_path2, 1'b1};
-							del_next3 <= 1;
-							tmp3 <= tmp2;
-						end
-						else begin
-							L2[del_path2] <= tmp2;
-							del_next3 <= 0;
-							tmp3 <= 0; //
-						end
-					end
-				end
-				else if ( del_index2*2 < count_del) begin
-					if (L3[del_path2*2] < tmp2) begin
-						L2[del_path2] <= L3[del_path2*2];
-						del_path3 <= {del_path2, 1'b0};
-						del_next3 <= 1;
-						tmp3 <= tmp2;
-					end
-					else begin
-						L2[del_path2] <= tmp2;
-						del_next3 <= 0;
-						tmp3 <= 0; // 
-					end
-				end
-				else begin
-					L2[del_path2] <= tmp2;
-					del_next3 <= 0;
-					tmp3 <= 0; //
-				end
+				L2[del_path2] <= c_L2node;
+				tmp3 <= c_tmp3;
+				del_next3 <= c_del_next3;
+				del_path3 <= {del_path2, c_del_child_id3};				
+				
 				prop_data3 <= 0;
 			end
 			else begin
@@ -355,6 +297,53 @@ module prio_q(
 			end
 		end
 	end
+	
+	task automatic delete_comb;
+
+		input [`HD-1:0] del_index;	// Index of the node
+		input [`HD-1:0] count;
+		input [`DW-1:0]	child0, child1;
+		input [`DW-1:0] from_top;	// Temporary buffer from level above
+
+		output reg [`DW-1:0] to_bot;// Temporary buffer for level below
+		output reg [`DW-1:0]	node;
+		output reg del_next;	 	// Pass delete signal to next level
+		output reg del_child_id; 	// Child id to be deleted
+
+		begin
+			node = from_top;
+			del_next = 0;
+			to_bot = 0;
+			del_path2 = del_path2;
+			
+			if( del_index*2 + 1 <= count ) begin
+				if( child0 < child1 ) begin
+					if( child0 < from_top ) begin
+						node = child0;
+						del_next = 1;
+						to_bot = from_top;
+						del_child_id = 0;
+					end
+				end
+				else begin
+					if( child1 < from_top ) begin
+						node = child1;
+						del_next = 1;
+						to_bot = from_top;
+						del_child_id = 1;
+					end
+				end
+			end
+			else if( del_index*2 <= count ) begin
+				if( child0 < from_top ) begin
+					node = child0;
+					del_next = 1;
+					to_bot = from_top;
+					del_child_id = 0;
+				end
+			end
+		end
+	endtask
 	
 	function integer clogb2;
 		input [`HD-1:0] value;
