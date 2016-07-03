@@ -148,12 +148,22 @@ module prio_q(
 	reg c_del_next2, c_del_next3;
 	reg c_del_child_id2, c_del_child_id3; 
 	
+	reg [`DW-1:0] e_tmp2, e_L1;
+	reg e_prop_next2;
+	reg [`DW-1:0] e_tmp3, e_L2;
+	reg e_prop_next3;
+	reg [`DW-1:0] e_tmp4, e_L3;
+	reg e_prop_next4;
+	
 	always @* begin : comb // Combinational logic between levels
 		delete_comb( 	del_index1, count,
 							L2[del_path1*2], L2[del_path1*2+1],
 							tmp1, c_tmp2,
 							c_L1node,
 							c_del_next2, c_del_child_id2
+		);
+		insert_comb(	(dest_level == 'h1), L1[index1], tmp1,
+						e_tmp2, e_L1, e_prop_next2
 		);
 	end
 	
@@ -167,18 +177,10 @@ module prio_q(
 		end
 		else begin
 			if (prop_data1) begin // New data descending from upper level
-				if(dest_level == 'h1) begin	// Won't propagate to next level
-					prop_data2 <= 0;	
-					L1[index1] <= tmp1;
-				end
-				else begin	// Compare and pass larger value to next level
-					prop_data2 <= 1;
-					if(tmp1 < L1[index1]) begin
-						tmp2 <= L1[index1];
-						L1[index1] <= tmp1;
-					end
-					else tmp2 <= tmp1;
-				end
+				tmp2 <= e_tmp2;
+				L1[index1] <= e_L1;
+				prop_data2 <= e_prop_next2;
+				
 				del_next2 <= 0;
 			end
 			else if (del_next1 == 1) begin
@@ -192,12 +194,10 @@ module prio_q(
 			else begin
 				prop_data2 <= 0;
 				del_next2 <= 0;
-				tmp2 <= 0; //
 			end
 		end
 	end
-	
-	
+		
 	wire [`HD-1:0] index2;
 	assign index2 = path12[`HD-1:`HD-2]; // get node index to operate on
 	assign del_index2 = {del_next2, del_path2};
@@ -213,6 +213,9 @@ module prio_q(
 							c_L2node,
 							c_del_next3, c_del_child_id3
 		);
+		insert_comb(	(dest_level == 'h2), L2[index2], tmp2,
+						e_tmp3, e_L2, e_prop_next3
+		);
 	end
 	
 	always @ (posedge CLK or negedge rst_n) begin // Level 2
@@ -226,18 +229,11 @@ module prio_q(
 			/* 	New data descending from upper level and deque isn't issued for this clock cycle.
 				A deque would take the propagating data and place it at the root so that it can
 				propagate down again for a deque phase. */	
-				if(dest_level == 'h2) begin	// Won't propagate to next level
-					prop_data3 <= 0;	
-					L2[index2] <= tmp2;
-				end
-				else begin	// Compare and pass larger value to next level
-					prop_data3 <= 1;
-					if(tmp2 < L2[index2]) begin
-						tmp3 <= L2[index2];
-						L2[index2] <= tmp2;
-					end
-					else tmp3 <= tmp2;
-				end
+				tmp3 <= e_tmp3;
+				L2[index2] <= e_L2;
+				prop_data3 <= e_prop_next3;
+				
+				del_next3 <= 0;
 			end
 			else if (del_next2 == 1) begin
 				L2[del_path2] <= c_L2node;
@@ -266,6 +262,12 @@ module prio_q(
 	assign del_index3 = {1'b1, del_path3};
 	reg [3:0] del_path4;
 	
+	always @* begin
+		insert_comb(	(dest_level_old == 'h3), L3[index3], tmp3,
+						e_tmp4, e_L3, e_prop_next4
+		);
+	end
+	
 	always @ (negedge CLK or negedge rst_n) begin // Level 3
 		if(!rst_n) begin : reset_L3
 			integer i;
@@ -274,19 +276,7 @@ module prio_q(
 		end
 		else begin
 			if (prop_data3) begin // New data descending from upper level
-				
-				if(dest_level_old == 'h3) begin	// Won't propagate to next level
-					prop_data4 <= 0;	
-					L3[index3] <= tmp3;
-				end
-				else begin	// Compare and pass larger value to next level
-					prop_data4 <= 1;
-					if(tmp3 < L3[index3]) begin
-						tmp4 <= L3[index3];
-						L3[index3] <= tmp3;
-					end
-					else tmp4 <= tmp3;
-				end
+				L3[index3] <= e_L3;
 			end
 			else if (del_next3 == 1) begin
 				L3[del_path3] <= tmp3;
@@ -298,8 +288,36 @@ module prio_q(
 		end
 	end
 	
-	task automatic delete_comb;
+		task automatic insert_comb;
 
+		input target_level;	// True if this is the destination level
+		input [`DW-1:0]	node_cur; // Current data of the node
+		input [`DW-1:0] from_top;	// Temporary buffer from level above
+
+		output reg [`DW-1:0] to_bot;// Temporary buffer for level below
+		output reg [`DW-1:0] node;	// Next data for the node
+		output reg prop_next;	 	// Pass insert signal to next level
+
+		begin
+			prop_next = 0;
+			node = node_cur;
+			
+			if(target_level) begin	// Reached target level
+				node = from_top;
+			end
+			else begin 	// Compare and pass larger value to next level
+				prop_next = 1;
+				if (from_top < node) begin
+					to_bot = node;
+					node = from_top;
+				end
+				else to_bot = from_top;
+			end
+		end
+
+	endtask
+	
+	task automatic delete_comb;
 		input [`HD-1:0] del_index;	// Index of the node
 		input [`HD-1:0] count;
 		input [`DW-1:0]	child0, child1;
