@@ -13,7 +13,8 @@ module prio_q(
     input rst_n,
     output reg [`HD-1:0] count
     );
-		
+	parameter CW = `DW; // Compare upto CW bits,
+	
 	reg	[`DW-1:0] 	L0, L1[1:0], L2[3:0], L3[7:0]; // Heap levels
 	
 	reg [`DW-1:0]	tmp1, tmp2, tmp3; // Buffer contains data in-between levels
@@ -86,7 +87,7 @@ module prio_q(
 				end
 				else begin
 					prop_next1 <= 1;
-					if(inp_data < L0) begin
+					if(inp_data[CW-1:0] < L0[CW-1:0]) begin
 						tmp1 <= L0;
 						L0 <= inp_data;
 					end
@@ -101,7 +102,7 @@ module prio_q(
 									(count > 3) ? 
 										((count == del_index2) ? tmp2 : L2[count - 4]) : 
 											L1[1];
-					if(L1[0] < L1[1]) begin
+					if(L1[0][CW-1:0] < L1[1][CW-1:0]) begin
 						L0 <= L1[0];
 						del_path1 <= 'b0;
 					end
@@ -274,7 +275,7 @@ module prio_q(
 			end
 			else begin 	// Compare and pass larger value to next level
 				prop_next = 1;
-				if (from_top < node) begin
+				if (from_top[CW-1:0] < node[CW-1:0]) begin
 					to_bot = node;
 					node = from_top;
 				end
@@ -302,8 +303,8 @@ module prio_q(
 			del_path2 = del_path2;
 			
 			if( del_index*2 + 1 <= count ) begin
-				if( child0 < child1 ) begin
-					if( child0 < from_top ) begin
+				if( child0[CW-1:0] < child1[CW-1:0] ) begin
+					if( child0[CW-1:0] < from_top[CW-1:0] ) begin
 						node = child0;
 						del_next = 1;
 						to_bot = from_top;
@@ -311,7 +312,7 @@ module prio_q(
 					end
 				end
 				else begin
-					if( child1 < from_top ) begin
+					if( child1[CW-1:0] < from_top[CW-1:0] ) begin
 						node = child1;
 						del_next = 1;
 						to_bot = from_top;
@@ -320,7 +321,7 @@ module prio_q(
 				end
 			end
 			else if( del_index*2 <= count ) begin
-				if( child0 < from_top ) begin
+				if( child0[CW-1:0] < from_top[CW-1:0] ) begin
 					node = child0;
 					del_next = 1;
 					to_bot = from_top;
