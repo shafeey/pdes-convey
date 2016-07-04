@@ -1,29 +1,23 @@
-module phold(CLK, rst_n, gvt, rtn_vld);
-input CLK;
+module phold(clk, rst_n, gvt, rtn_vld);
+input clk;
 input rst_n;
 output reg [13:0] gvt;
 output reg rtn_vld;
 
-reg enq, deq;
+/*
+ * State Machine
+ */
+localparam 	IDLE = 3'd0,
+			INIT = 3'd1,
+			READY = 3'd2,
+			RUNNING = 3'd3,
+			FINISHED = 3'd4;
 
-wire [13:0] rnd1, rnd2;
-wire [15:0] queue_in, queue_out;
-reg  [15:0] new_event;
-wire [4:0]	event_count;
-
-
-
-localparam 	IDLE = 2'd0,
-			INIT = 2'd1,
-			READY = 2'd2,
-			RUNNING = 2'd3,
-			FINISHED = 2'd4;
-
-reg queue_ready, prng_ready;
+wire init_complete;
 reg	[2:0]	c_state, r_state;
 reg c_rtn_vld;
 
-always @* begin
+always @* begin : state_transitions
 	c_state = r_state;
 	c_rtn_vld = rtn_vld;
 	
@@ -32,13 +26,13 @@ always @* begin
 		if(rst_n)
 			c_state = INIT;
 	INIT:
-		if(queue_ready && prng_ready) begin
+		if(init_complete) begin
 			c_state = READY;
 		end
 	READY:
 		c_state = RUNNING;
 	RUNNING:
-		if(gvt > 14'd12000) begin
+		if(gvt > 13'd8000) begin
 			c_state = FINISHED;
 			c_rtn_vld = 1;
 		end
@@ -49,7 +43,7 @@ always @* begin
 	endcase
 end
 	
-always @(posedge CLK or negedge rst_n) begin
+always @(posedge clk or negedge rst_n) begin
 	if(!rst_n) begin
 		r_state <= 3'b0;
 		rtn_vld <= 0;
@@ -61,109 +55,173 @@ always @(posedge CLK or negedge rst_n) begin
 end
 
 
-reg [3:0] counter;
-always @(posedge CLK or negedge rst_n) begin
+/*
+ *  Initialization state.
+ *  Used to insert the initial events to the queue.
+ */
+reg [1:0] init_counter;
+always @(posedge clk or negedge rst_n) begin
 	if(!rst_n) begin
-		counter <= 0;
+		init_counter <= 0;
 	end
 	else begin
-		if(r_state == INIT || r_state == RUNNING)
-			counter <= counter + 1;
-		else
-			counter <= 0;		
+		init_counter <= (r_state == INIT) ? (init_counter + 1) : 0;
 	end
 end
+assign init_complete = (init_counter == 2'd3);
 
-wire [1:0] op = counter[3:2];
-wire [1:0] LP_id = counter[1:0];
 
-reg [1:0] id[3:0];
-reg [6:0] rnd_LP[3:0];
-wire [6:0] rnd[3:0];
-wire [15:0] new_event_LP[3:0];
-reg [13:0] time_LP[3:0];
+/*
+ *	Events enqueue and dispatch control
+ */
+wire enq, deq;
+wire [15:0] queue_out;
+wire  [15:0] new_event;
+wire [4:0]	event_count;
 
-assign rnd[0] = rnd1[6:0];
-assign rnd[1] = rnd2[6:0];
-assign rnd[2] = rnd1[13:8];
-assign rnd[3] = rnd2[13:8];
+wire new_event_available, core_available;
+wire [1:0] rcv_egnt, send_egnt;
+wire [3:0] rcv_vgnt, send_vgnt, rcv_vld, send_vld;
+wire [15:0] new_event_data[3:0];
+wire  [15:0] send_event_data;
 
-always @(posedge CLK or negedge rst_n) begin : process_LP
-	if(!rst_n) begin
-		enq <= 0;
-		deq <= 0;
-		gvt <= 0;
-		queue_ready <= 0;
-		prng_ready <= 0;
-	end
-	else begin
-		case(r_state)
-		INIT: begin
-			enq <= !queue_ready;
-			new_event <= {14'b0, LP_id};
-			queue_ready <= (counter == 3) ? 1 : queue_ready;
-			prng_ready <= (counter == 14);
-		end
-		RUNNING: begin
-			case(op)
-			2'b00: begin 	// get events from the queue
-				id[LP_id] <= queue_out[1:0];
-				time_LP[LP_id] <= queue_out[15:2];
-				rnd_LP[LP_id] <= rnd[LP_id];
-				deq <= 1;
-			end
-			2'b10: begin // send new events to the queue
-				new_event <= new_event_LP[LP_id];
-				gvt <= time_LP[counter[1:0]];
-				enq <= 1;
-				$display("gvt= %d, LP: %d, new event at %d to LP %d",
-								time_LP[LP_id], id[LP_id], new_event_LP[LP_id][15:2],
-								new_event_LP[LP_id][1:0]);
-			end
-			default: begin
-				enq <= 0;
-				deq <= 0;
-			end
-			endcase
-		end
-		default: begin
-			enq <= 0;
-			deq <= 0;
-		end
-		endcase
-	end
+assign enq = (r_state == INIT) | 
+				((r_state == RUNNING) ? new_event_available : 1'b0) ;
+assign deq = (r_state == RUNNING) ? (~new_event_available & core_available) : 0;
+assign new_event = (r_state == INIT) ? {14'b0, init_counter} :
+						new_event_data[rcv_egnt];
+						
+
+// Debug displays						
+always @(posedge clk) begin
+	if (deq) $display("GVT: %d, \tEvent sent to CORE %d,\ttime: %d, LP: %d",
+						gvt, send_egnt, event_time, event_id);
+	if (enq) $display("GVT: %d, \t\t\t\t\t\tNew event from CORE %d,\ttime: %d, LP: %d",
+						gvt, rcv_egnt, new_event[15:3], new_event[2:0]);
 end
+
+
+/*
+ *	Submodule instantiations
+ */
+wire send_event_valid, next_rnd;
+assign send_event_data = queue_out;
+assign send_event_valid = deq;
+assign next_rnd = deq || (r_state == INIT);
+
+// Round robin arbiter
+rrarb  rcv_rrarb (	// Receive new events from the cores
+	.clk    ( clk ),
+	.reset  ( ~rst_n ),
+	.req    ( rcv_vld ),
+	.stall  ( 1'b0 ),
+	.vgnt   ( rcv_vgnt ),
+	.eval   ( new_event_available ),
+	.egnt   ( rcv_egnt )
+);
+
+rrarb  send_rrarb (	// Dispatch new events to the cores
+	.clk    ( clk ),
+	.reset  ( ~rst_n ),
+	.req    ( send_vld ),
+	.stall  ( 1'b0 ),
+	.vgnt   ( send_vgnt ),
+	.eval   ( core_available ),
+	.egnt   ( send_egnt )
+);
+
+wire [7:0] random_in;
+wire [15:0] event_time;
+wire [2:0] event_id;
+assign event_time = send_event_data[15:3];
+assign event_id = send_event_data[2:0];
+
+// Phold Core instantiation
+genvar g;
+generate
+for (g = 0; g < 4; g = g+1) begin : gen_phold_core
+	wire event_valid, new_event_ready, ack, ready;
+	wire [2:0] new_event_target;
+	wire [15:0] new_event_time;
+
+	phold_core inst_phold_core (
+	   .clk              ( clk ),
+	   .rst_n            ( rst_n ),
+	   .event_valid      ( event_valid ),
+	   .event_id         ( event_id ),
+	   .event_time       ( event_time ),
+	   .global_time      ( gvt ),
+	   .random_in        ( random_in ),
+	   .new_event_time   ( new_event_time ),
+	   .new_event_target ( new_event_target ),
+	   .new_event_ready  ( new_event_ready ),
+	   .ack              ( ack ),
+	   .ready            ( ready )
+	);
+	
+	assign event_valid = send_event_valid & send_vgnt[g];
+	assign new_event_data[g] = {new_event_time[12:0], new_event_target};
+	assign rcv_vld[g] = new_event_ready;	
+	assign ack = rcv_vgnt[g];	
+	assign send_vld[g] = ready;
+end
+endgenerate
 
 // Event queue instantiation
 prio_q queue(
-	.CLK(~CLK),
+	.CLK(clk),
 	.rst_n(rst_n),
 	.enq(enq),
-	.deq(deq),
+	.deq( deq ),
 	.inp_data(new_event),
 	.out_data(queue_out),
 	.count(event_count)
 );
 
 // PRNG instantiation
-LFSR prng1(
-    .clock(CLK),
-    .reset(!rst_n),
-	.seed(14'hffff),
-    .rnd(rnd1)
-    );
-LFSR prng2(
-    .clock(CLK),
-    .reset(!rst_n),
-	.seed(14'hAAAA),
-    .rnd(rnd2)
-    );
+wire [15:0] seed = 16'hffff; // Initialize PRNG with a seed
+LFSR prng (
+   .clk   ( clk ),
+   .rst_n ( rst_n ),
+   .next  ( next_rnd ),
+   .seed  ( seed ),
+   .rnd   ( random_in )
+);
 
+/*
+ *	GVT calculation
+ */
+ reg [13:0] loc_times[3:0];
+ reg [3:0] core_act;
+ wire [14:0] t_gvt;
+ integer l_t_i;
 
-phold_LP LP0 (CLK, rst_n, id[0], rnd_LP[0], time_LP[0], new_event_LP[0]);
-phold_LP LP1 (CLK, rst_n, id[1], rnd_LP[1], time_LP[1], new_event_LP[1]);
-phold_LP LP2 (CLK, rst_n, id[2], rnd_LP[2], time_LP[2], new_event_LP[2]);
-phold_LP LP3 (CLK, rst_n, id[3], rnd_LP[3], time_LP[3], new_event_LP[3]);
+ always @(posedge clk or negedge rst_n) begin
+	if(~rst_n) begin
+		gvt <= 0;
+		core_act <= 0;
+		for(l_t_i = 0; l_t_i <4; l_t_i = l_t_i + 1) loc_times[l_t_i] <= 0;
+	end
+	else begin
+		if(deq) begin
+			loc_times[send_egnt] <= event_time;
+			core_act[send_egnt] <= 1;
+		end
+		else if(enq) begin
+			core_act[rcv_vld] <= 0;
+		end
+		gvt <= (r_state == RUNNING) ? t_gvt[13:0] : gvt;
+	end
+end
+assign t_gvt = minima( minima({core_act[0], loc_times[0]} , {core_act[1], loc_times[1]}),
+							minima({core_act[2], loc_times[2]} , {core_act[3], loc_times[3]})
+						);
+
+function [14:0] minima;
+input [14:0] i0, i1;
+begin
+	minima = i0 < i1 ? i0 : i1;
+end
+endfunction
 
 endmodule
-
