@@ -15,13 +15,13 @@ initial begin
 end
 
 initial begin
- rst_n = 1;
- #10
  rst_n = 0;
  #20
  rst_n = 1;
  
-// @(posedge rtn_vld)
+ @(posedge rtn_vld)
+ rst_n = 0;
+ 
 //	#20 $finish;
 end 
 
