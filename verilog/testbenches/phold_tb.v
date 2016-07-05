@@ -2,7 +2,7 @@
 module phold_tb();
 
 reg clk, rst_n;
-wire [13:0] gvt;
+wire [15:0] gvt;
 wire rtn_vld;
 phold DUT(clk, rst_n, gvt, rtn_vld);
 

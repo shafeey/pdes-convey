@@ -1,8 +1,7 @@
-`timescale 1ns / 1ps
+`timescale 1ns / 100ps
 
-`define DW 16 // Width of data bus
+`include "global_params.vh"
 `define HD 5 // Depth of heap, heap size = (2^HD)-1
-
 
 module prio_q(
     input CLK,

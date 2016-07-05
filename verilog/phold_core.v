@@ -1,3 +1,5 @@
+`include "global_params.vh"
+
 module phold_core
 	#(
 	parameter NIDB = 3, // Number of bits in ID. Number of Available LP < 2 ^ NIDB
@@ -9,15 +11,15 @@ module phold_core
 	// Incoming events
 	input event_valid,
 	input [NIDB-1:0] event_id,
-	input [15:0] event_time,
+	input [`TW-1:0] event_time,
 	
-	input [15:0] global_time,
+	input [`TW-1:0] global_time,
 	
 	// Receive a random number
 	input [NRB-1:0] random_in,
 	
 	// New generated event
-	output reg [15:0] new_event_time,
+	output reg [`TW-1:0] new_event_time,
 	output reg [NIDB-1:0] new_event_target,
 	output reg new_event_ready,
 	
@@ -26,7 +28,7 @@ module phold_core
 );
 	
 	reg [NRB-1:0] rnd;
-	reg [15:0] local_time, gvt;
+	reg [`TW-1:0] local_time, gvt;
 	reg [NIDB-1:0] local_id;
 	
 	always@(posedge clk) begin
