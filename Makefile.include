@@ -5,6 +5,7 @@ CNY_PDK_PLATFORM = hc-2ex
 
 # Vadd personality requires read ordering
 MC_RSP_ORDER = 1
+NUM_MC_PORTS = 1
 
 # Personality clock frequency 
 #   CLK_PERS_FREQ = <50|75|100...250>

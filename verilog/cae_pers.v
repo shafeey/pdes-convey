@@ -32,7 +32,7 @@
 
 (* keep_hierarchy = "true" *)
 module cae_pers #(
-   parameter    NUM_MC_PORTS = 16,
+   parameter    NUM_MC_PORTS = 1,
    parameter    RTNCTL_WIDTH = 32
 ) (
    //
