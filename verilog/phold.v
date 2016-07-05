@@ -1,10 +1,32 @@
 `include "global_params.vh"
 
-module phold(clk, rst_n, gvt, rtn_vld);
-input clk;
-input rst_n;
-output reg [`TW-1:0] gvt;
-output reg rtn_vld;
+module phold #(
+	parameter    NUM_MC_PORTS = 1,
+	parameter    MC_RTNCTL_WIDTH = 32
+)(
+	input clk,
+	input rst_n,
+	
+	output reg [`TW-1:0] gvt,
+	output reg rtn_vld,
+	
+	output			mc_rq_vld,
+	output [2:0]	mc_rq_cmd,
+	output [3:0]	mc_rq_scmd,
+	output [47:0]	mc_rq_vadr,
+	output [1:0]	mc_rq_size,
+	output [MC_RTNCTL_WIDTH-1:0]	mc_rq_rtnctl,
+	output [63:0]	mc_rq_data,
+	output 			mc_rq_flush,
+	input			mc_rq_stall,
+
+	input			mc_rs_vld,
+	input  [2:0]	mc_rs_cmd,
+	input  [3:0]	mc_rs_scmd,
+	input  [MC_RTNCTL_WIDTH-1:0]	mc_rs_rtnctl,
+	input  [63:0]	mc_rs_data,
+	output			mc_rs_stall,
+);
 
 /*
  * State Machine

@@ -220,7 +220,6 @@ module cae_pers #(
 	end
 	
 	wire phold_rst_n = !r_reset && (r_state == RUNNING);
-	phold phold_inst(clk, phold_rst_n, phold_gvt, phold_rtn_vld); 
    
 	assign disp_idle  = (r_state == IDLE) && !r_caep00;
 	assign disp_stall = (r_state != IDLE) || c_caep00 || r_caep00;
@@ -257,18 +256,35 @@ module cae_pers #(
     assign csr_rd_ack = r_csr_rd_ack;
     assign csr_rd_data = r_csr_rd_data;
 	
-	// disable all memory ports
-	assign mc_rq_vld = 0;
-	assign mc_rq_rtnctl = 0;
-	assign mc_rq_data = 0;
-	assign mc_rq_vadr = 0;
-	assign mc_rq_size = 0;
-	assign mc_rq_cmd = 0;
-	assign mc_rq_scmd = 0;
-	assign mc_rq_stall = 0;
-
-	assign mc_rs_stall = 0;
-	assign mc_rq_flush = 0;
+	// Instantiate phold
+// genvar i;
+// generate for (i=0; i<NUM_MC_PORTS; i=i+1) begin : fp
+	phold #(
+		.NUM_MC_PORTS   ( NUM_MC_PORTS ),
+		.RTNCTL_WIDTH	( RTNCTL_WIDTH ),
+	) inst_phold (
+		.clk          ( clk ),
+		.rst_n        ( phold_rst_n ),
+		.gvt          ( phold_gvt ),
+		.rtn_vld      ( phold_rtn_vld ),
+		
+		.mc_rq_vld    ( mc_rq_vld ),
+		.mc_rq_cmd    ( mc_rq_cmd ),
+		.mc_rq_scmd   ( mc_rq_scmd ),
+		.mc_rq_vadr   ( mc_rq_vadr ),
+		.mc_rq_size   ( mc_rq_size ),
+		.mc_rq_rtnctl ( mc_rq_rtnctl ),
+		.mc_rq_data   ( mc_rq_data ),
+		.mc_rq_flush  ( mc_rq_flush ),
+		.mc_rq_stall  ( mc_rq_stall ),
+		.mc_rs_vld    ( mc_rs_vld ),
+		.mc_rs_cmd    ( mc_rs_cmd ),
+		.mc_rs_scmd   ( mc_rs_scmd ),
+		.mc_rs_rtnctl ( mc_rs_rtnctl ),
+		.mc_rs_data   ( mc_rs_data ),
+		.mc_rs_stall  ( mc_rs_stall )
+	);
+// end endgenerate
 
    /* ---------- debug & synopsys off blocks  ---------- */
 
