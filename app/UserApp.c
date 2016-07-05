@@ -12,6 +12,7 @@ int main(int argc, char *argv[])
 {
   long i;
   uint64 gvt=0;
+  uint64  *cp_a1;
 
   // Get personality signature
   // The "pdk" personality is the PDK sample vadd personality
@@ -34,10 +35,17 @@ int main(int argc, char *argv[])
     printf("***ERROR:  interleave set to 3131, this personality requires binary interleave\n");
     exit (1);
   }
+  
+  // Allocate memory on coprocessor
+  if (cny_cp_malloc)  {
+    cp_a1 = (uint64 *) (cny_cp_malloc)(size*4);
+  }
+  else 
+    printf("malloc failed\n");
 
 
   // phold copcall
-  gvt = l_copcall_fmt(sig, cpPhold, "");
+  gvt = l_copcall_fmt(sig, cpPhold, "A", cp_a1);
   printf("Returned gvt = %d\n", gvt);
 
   return 0;

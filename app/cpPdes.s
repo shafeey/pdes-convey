@@ -28,6 +28,7 @@
 #	.cend
 	
 cpPhold:
+	mov %a8, $0, %aeg		# a8 contains address of a1
 	caep00 $0
 	mov.ae0 %aeg, $0, %a8
 	rtn

@@ -114,8 +114,9 @@ module cae_pers #(
 	// AEG[0..NA-1] Registers
 	//
 
-	localparam NA = 1;
+	localparam NA = 2;
 	localparam NB = 1;
+	localparam AEG_ADDR_A1 = 0;	// Array 1 address
 
 	assign disp_aeg_cnt = NA; // Number of AEG registers implemented in the CAE
 
