@@ -275,6 +275,7 @@ end
 	) inst_phold (
 		.clk          ( clk ),
 		.rst_n        ( phold_rst_n ),
+		.addr         ( aeg[AEG_ADDR_A1][47:0] ),
 		.gvt          ( phold_gvt ),
 		.rtn_vld      ( phold_rtn_vld ),
 		
