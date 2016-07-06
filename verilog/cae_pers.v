@@ -271,10 +271,11 @@ end
 // generate for (i=0; i<NUM_MC_PORTS; i=i+1) begin : fp
 	phold #(
 		.NUM_MC_PORTS   ( NUM_MC_PORTS ),
-		.RTNCTL_WIDTH	( RTNCTL_WIDTH ),
+		.RTNCTL_WIDTH	( RTNCTL_WIDTH )
 	) inst_phold (
 		.clk          ( clk ),
 		.rst_n        ( phold_rst_n ),
+		.addr         ( aeg[AEG_ADDR_A1][47:0] ),
 		.gvt          ( phold_gvt ),
 		.rtn_vld      ( phold_rtn_vld ),
 		

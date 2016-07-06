@@ -7,6 +7,7 @@ module phold #(
 	input clk,
 	input rst_n,
 	
+	input [47:0]	addr,	
 	output reg [`TW-1:0] gvt,
 	output reg rtn_vld,
 	
@@ -27,6 +28,9 @@ module phold #(
 	input  [63:0]	mc_rs_data,
 	output			mc_rs_stall
 );
+
+always @ (posedge rst_n)
+	$display("Address to phold: %h", addr);
 
 /*
  * State Machine
@@ -236,7 +240,7 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	   .mc_rs_data       ( mc_rs_data ),
 	   .mc_rs_stall      ( p_mc_rs_stall[g] ),
 	   .addr             ( addr ),
-	   .mem_gnt          ( mem_gnt )
+	   .mem_gnt          ( mem_vgnt[g] )
 	);
 	
 	assign event_valid = send_event_valid & send_vgnt[g];

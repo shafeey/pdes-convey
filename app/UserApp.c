@@ -13,6 +13,7 @@ int main(int argc, char *argv[])
   long i;
   uint64 gvt=0;
   uint64  *cp_a1;
+  long size = 8;
 
   // Get personality signature
   // The "pdk" personality is the PDK sample vadd personality
@@ -38,7 +39,8 @@ int main(int argc, char *argv[])
   
   // Allocate memory on coprocessor
   if (cny_cp_malloc)  {
-    cp_a1 = (uint64 *) (cny_cp_malloc)(size*4);
+    cp_a1 = (uint64 *) (cny_cp_malloc)(size*8);
+	printf("Address passed to CAE: %p\n", cp_a1);
   }
   else 
     printf("malloc failed\n");
