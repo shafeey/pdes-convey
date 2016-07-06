@@ -33,7 +33,7 @@
 (* keep_hierarchy = "true" *)
 module cae_pers #(
    parameter    NUM_MC_PORTS = 1,
-   parameter    RTNCTL_WIDTH = 32
+   parameter    MC_RTNCTL_WIDTH = 32
 ) (
    //
    // Clocks and Resets
