@@ -33,7 +33,7 @@
 (* keep_hierarchy = "true" *)
 module cae_pers #(
    parameter    NUM_MC_PORTS = 1,
-   parameter    MC_RTNCTL_WIDTH = 32
+   parameter    RTNCTL_WIDTH = 32
 ) (
    //
    // Clocks and Resets
@@ -123,9 +123,10 @@ end
 	// AEG[0..NA-1] Registers
 	//
 
-	localparam NA = 2;
-	localparam NB = 1;
+	localparam NA = 8;
+	localparam NB = 3;
 	localparam AEG_ADDR_A1 = 0;	// Array 1 address
+	localparam AEG_GVT = 1; // GVT return on AEG[1]
 
 	assign disp_aeg_cnt = NA; // Number of AEG registers implemented in the CAE
 
@@ -136,20 +137,25 @@ end
 	wire xbar_enabled = MC_XBAR;
 
 	//
-	//	Return data to AEG register when operation complete
+	//	Setting data to aeg
 	//
-	reg [63:0]	c_aeg, r_aeg;
-	always @* begin
-		c_aeg = r_aeg;
-		if(r_gvt_returned)
-			c_aeg = r_gvt;
-	end
+   genvar g;
+   generate for (g=0; g<NA; g=g+1) begin : g0
+      reg [63:0] c_aeg, r_aeg;
 
-	always @(posedge clk) begin
-		r_aeg <= c_aeg;
-	end
+      always @* begin
+	 c_aeg = r_aeg;
+         if (disp_aeg_wr && disp_aeg_idx[NB-1:0] == g)
+            c_aeg = disp_aeg_wr_data;
+         else if (g==AEG_GVT && r_gvt_returned)
+            c_aeg = r_gvt;
+      end
 
-	assign aeg[0] = r_gvt;
+      always @(posedge clk) begin
+	r_aeg <= c_aeg;
+      end
+      assign aeg[g] = r_aeg;
+   end endgenerate
 
 	// 
 	// Handle calls to correct AEG
@@ -271,7 +277,7 @@ end
 // generate for (i=0; i<NUM_MC_PORTS; i=i+1) begin : fp
 	phold #(
 		.NUM_MC_PORTS   ( NUM_MC_PORTS ),
-		.RTNCTL_WIDTH	( RTNCTL_WIDTH )
+		.MC_RTNCTL_WIDTH	( RTNCTL_WIDTH )
 	) inst_phold (
 		.clk          ( clk ),
 		.rst_n        ( phold_rst_n ),
