@@ -25,7 +25,7 @@ module phold #(
 	input  [3:0]	mc_rs_scmd,
 	input  [MC_RTNCTL_WIDTH-1:0]	mc_rs_rtnctl,
 	input  [63:0]	mc_rs_data,
-	output			mc_rs_stall,
+	output			mc_rs_stall
 );
 
 /*
@@ -128,6 +128,9 @@ end
 /*
  *	Submodule instantiations
  */
+wire [3:0] mem_req, mem_vgnt;
+wire [1:0] mem_egnt;
+wire mem_req_vld;
 wire send_event_valid, next_rnd;
 assign send_event_data = queue_out;
 assign send_event_valid = deq;
@@ -154,11 +157,42 @@ rrarb  send_rrarb (	// Dispatch new events to the cores
 	.egnt   ( send_egnt )
 );
 
+rrarb  mem_rrarb (	// Memory access arbiter
+	.clk    ( clk ),
+	.reset  ( ~rst_n ),
+	.req    ( mem_req ),
+	.stall  ( 1'b0 ),
+	.vgnt   ( mem_vgnt ),
+	.eval   ( mem_req_vld ),
+	.egnt   ( mem_egnt )
+);
+
 wire [7:0] random_in;
 wire [`TW-1:0] event_time;
 wire [2:0] event_id;
 assign event_time = send_event_data[`TW-1:0];
 assign event_id = send_event_data[`TW +: 3];
+
+wire [3:0] p_mc_rq_vld;
+wire [2:0] p_mc_rq_cmd[3:0];
+wire [3:0] p_mc_rq_scmd[3:0];
+wire [47:0] p_mc_rq_vadr[3:0];
+wire [1:0] p_mc_rq_size[3:0];
+wire [MC_RTNCTL_WIDTH-1:0] p_mc_rq_rtnctl[3:0];
+wire [63:0] p_mc_rq_data[3:0];
+wire [3:0] p_mc_rq_flush;
+wire [3:0] p_mc_rs_stall;
+
+assign mem_req = p_mc_rq_vld;
+assign mc_rq_vld = mem_req_vld;
+assign mc_rq_cmd = p_mc_rq_cmd[mem_egnt];
+assign mc_rq_scmd = p_mc_rq_scmd[mem_egnt];
+assign mc_rq_vadr = p_mc_rq_vadr[mem_egnt];
+assign mc_rq_size = p_mc_rq_size[mem_egnt];
+assign mc_rq_rtnctl = p_mc_rq_rtnctl[mem_egnt];
+assign mc_rq_data = p_mc_rq_data[mem_egnt];
+assign mc_rq_flush = p_mc_rq_flush[mem_egnt];
+assign mc_rs_stall = p_mc_rs_stall[mem_egnt];
 
 // Phold Core instantiation
 genvar g;
@@ -168,19 +202,41 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	wire [2:0] new_event_target;
 	wire [`TW-1:0] new_event_time;
 
-	phold_core inst_phold_core (
+	phold_core
+	 #(
+	   .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH )
+	)  phold_core_inst
+	 (
 	   .clk              ( clk ),
 	   .rst_n            ( rst_n ),
+	   .core_id          ( core_id ),
 	   .event_valid      ( event_valid ),
 	   .event_id         ( event_id ),
 	   .event_time       ( event_time ),
-	   .global_time      ( gvt ),
+	   .global_time      ( global_time ),
 	   .random_in        ( random_in ),
 	   .new_event_time   ( new_event_time ),
 	   .new_event_target ( new_event_target ),
 	   .new_event_ready  ( new_event_ready ),
+	   .ready            ( ready ),
 	   .ack              ( ack ),
-	   .ready            ( ready )
+	   .mc_rq_vld        ( p_mc_rq_vld[g] ),
+	   .mc_rq_cmd        ( p_mc_rq_cmd[g] ),
+	   .mc_rq_scmd       ( p_mc_rq_scmd[g] ),
+	   .mc_rq_vadr       ( p_mc_rq_vadr[g] ),
+	   .mc_rq_size       ( p_mc_rq_size[g] ),
+	   .mc_rq_rtnctl     ( p_mc_rq_rtnctl[g] ),
+	   .mc_rq_data       ( p_mc_rq_data[g] ),
+	   .mc_rq_flush      ( p_mc_rq_flush[g] ),
+	   .mc_rq_stall      ( mc_rq_stall ),
+	   .mc_rs_vld        ( mc_rs_vld ),
+	   .mc_rs_cmd        ( mc_rs_cmd ),
+	   .mc_rs_scmd       ( mc_rs_scmd ),
+	   .mc_rs_rtnctl     ( mc_rs_rtnctl ),
+	   .mc_rs_data       ( mc_rs_data ),
+	   .mc_rs_stall      ( p_mc_rs_stall[g] ),
+	   .addr             ( addr ),
+	   .mem_gnt          ( mem_gnt )
 	);
 	
 	assign event_valid = send_event_valid & send_vgnt[g];
@@ -237,6 +293,7 @@ LFSR prng (
 		gvt <= (r_state == RUNNING) ? t_gvt : gvt;
 	end
 end
+
 assign t_gvt = minima( minima({core_act[0], loc_times[0]} , {core_act[1], loc_times[1]}),
 							minima({core_act[2], loc_times[2]} , {core_act[3], loc_times[3]})
 						);
