@@ -29,9 +29,6 @@ module phold #(
 	output			mc_rs_stall
 );
 
-always @ (posedge rst_n)
-	$display("Address to phold: %h", addr);
-
 /*
  * State Machine
  */
@@ -213,11 +210,11 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	 (
 	   .clk              ( clk ),
 	   .rst_n            ( rst_n ),
-	   .core_id          ( core_id ),
+	   .core_id          ( g ),
 	   .event_valid      ( event_valid ),
 	   .event_id         ( event_id ),
 	   .event_time       ( event_time ),
-	   .global_time      ( global_time ),
+	   .global_time      ( gvt ),
 	   .random_in        ( random_in ),
 	   .new_event_time   ( new_event_time ),
 	   .new_event_target ( new_event_target ),

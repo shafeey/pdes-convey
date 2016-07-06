@@ -107,12 +107,14 @@ module cae_pers #(
 `include "aemc_messages.vh"
 
 initial begin
-	$dumpfile("dump_phold_core.vcd");
-	$dumpvars(0, testbench.cae_fpga0.ae_top.core.cae_pers.inst_phold);
+	$dumpfile("dump.vcd");
+	$dumpvars(1, testbench.cae_fpga0.ae_top.core.cae_pers.clk, 
+				testbench.cae_fpga0.ae_top.core.cae_pers.inst_phold,
+				testbench.cae_fpga0.ae_top.core.cae_pers.inst_phold.gen_phold_core[1].phold_core_inst);
 	$dumpoff;
 	#200;
 	$dumpon;
-	#100;
+	#50;
 	$dumpoff;
 end
 	//**************************************************************************
