@@ -1,4 +1,4 @@
 #!/bin/sh
 
 #runpdksim -nohwsim ../app/app $*
-runpdksim ../app/app $*
+runpdksim -ae=0 ../app/app $*
