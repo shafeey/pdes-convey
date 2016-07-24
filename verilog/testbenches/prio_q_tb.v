@@ -1,5 +1,6 @@
 `timescale 1ns / 1ps
 
+//`define PRIO_Q_DUMP_HEAP_CONTENTS // Writes heap values to file for debug
 `define DWIDTH 16 // Width of DATA BUS
 `define HDEPTH 5  // Depth of heap
 
@@ -38,7 +39,7 @@ module prio_q_tb( );
       #5 clk = !clk;
 
    always @(posedge clk) begin
-      cycle_num = cycle_num + 1;
+      cycle_num = (rst_n && !done) ? cycle_num + 1 : 0;
    end
 
    initial begin // Read stimuli from data file
@@ -64,10 +65,10 @@ module prio_q_tb( );
    end
 
    always @(posedge clk) begin
-      if(count == 16)
+      if(count == 32)
          $display("Error: Invalid number of elements in the queue");
       if(deq && inp_data != out_data)
-         $display("Dequeue mismatch: Cycle %d, Count %d, Expected %d, Actual %d",
+         $display("Error: Cycle %d, Count %d, Expected %d, Actual %d",
             cycle_num, count, inp_data, out_data);
    end
 
@@ -81,5 +82,34 @@ module prio_q_tb( );
       .out_data(out_data),
       .count(count)
    );
+
+`ifdef PRIO_Q_DUMP_HEAP_CONTENTS
+   integer               mem_file;  // memory dump file handler
+   integer               p;
+
+   initial begin // Open file for writing heap contents
+      @(posedge rst_n);
+      mem_file = $fopen("testbenches/mem_dump.dat", "w");
+      if (mem_file == 0) begin
+         $display("Error opening mem file");
+         $finish;
+      end
+
+      @(posedge done); // After simulation completes
+      $fclose(mem_file);
+   end
+
+   always @(posedge clk or negedge clk) begin : disp_routine
+      if(rst_n && !done) begin
+         $fwrite(mem_file,"%6d,",cycle_num);
+         $fwrite(mem_file, "%3d,", DUT.L0);
+         for(p = 0; p < 2; p = p+1) $fwrite(mem_file, "%3d,", DUT.L1[p]);
+         for(p = 0; p < 4; p = p+1) $fwrite(mem_file, "%3d,", DUT.L2[p]);
+         for(p = 0; p < 8; p = p+1) $fwrite(mem_file, "%3d,", DUT.L3[p]);
+         for(p = 0; p < 16; p = p+1) $fwrite(mem_file, "%3d,", DUT.L4[p]);
+         $fwrite(mem_file, "%3d,%3d,%3d,%3d,%3d\n",DUT.tmp1, DUT.tmp2, DUT.tmp3, DUT.tmp4, DUT.count);
+      end
+   end
+`endif
 
 endmodule
