@@ -14,10 +14,10 @@ module prio_q(
     );
 	parameter CW = `DW; // Compare upto CW bits,
 	
-	reg	[`DW-1:0] 	L0, L1[1:0], L2[3:0], L3[7:0]; // Heap levels
+	reg	[`DW-1:0] 	L0, L1[1:0], L2[3:0], L3[7:0], L4[15:0]; // Heap levels
 	
-	reg [`DW-1:0]	tmp1, tmp2, tmp3; // Buffer contains data in-between levels
-	reg	prop_next1, prop_next2, prop_next3; // Propagate signals
+	reg [`DW-1:0]	tmp1, tmp2, tmp3, tmp4; // Buffer contains data in-between levels
+	reg	prop_next1, prop_next2, prop_next3, prop_next4; // Propagate signals
 	reg [`HD-1:0]	path12, path34; // Path of propagation
 	
 	assign out_data = L0;
@@ -65,13 +65,14 @@ module prio_q(
 		end
 	end
 	
-	wire [`HD-1:0] index1, index2, index3;
-	reg del_next1, del_next2, del_next3;
+	wire [`HD-1:0] index1, index2, index3, index4;
+	reg del_next1, del_next2, del_next3, del_next4;
 	wire [`HD-1:0] del_index1;
 	reg del_path1;
 	reg [1:0] del_path2;
 	reg [2:0] del_path3;
-	wire [`HD-1:0] del_index2;
+	reg [3:0] del_path4;
+	wire [`HD-1:0] del_index2, del_index3, del_index4;
 	
 	always @ (posedge CLK or negedge rst_n) begin // Root level
 		if(!rst_n) begin
@@ -97,10 +98,12 @@ module prio_q(
 			else if(deq) begin
 				if(count > 'h2) begin
 					tmp1 <= (prop_next2) ? tmp2 :
-								(count > 7) ? L3[count - 8] :
-									(count > 3) ? 
-										((count == del_index2) ? tmp2 : L2[count - 4]) : 
-											L1[1];
+                        (prop_next4) ? tmp4 :
+                           (count > 15) ? ( (count == del_index4 && del_next4) ? tmp4 : L4[count - 16]) :
+      								(count > 7) ? L3[count - 8] :
+      									(count > 3) ? 
+      										((count == del_index2) ? tmp2 : L2[count - 4]) : 
+      											L1[1];
 					if(L1[0][CW-1:0] < L1[1][CW-1:0]) begin
 						L0 <= L1[0];
 						del_path1 <= 'b0;
@@ -129,11 +132,11 @@ module prio_q(
 	assign index1 = path12[`HD-1]; // get node index to operate on
 	assign del_index1 = {1'b1, del_path1};
 		
-	reg [`DW-1:0] c_tmp2, c_tmp3;
-	reg c_del_next2, c_del_next3, c_del_child_id2, c_del_child_id3; 
+	reg [`DW-1:0] c_tmp2, c_tmp3, c_tmp4;
+	reg c_del_next2, c_del_next3, c_del_next4, c_del_child_id2, c_del_child_id3, c_del_child_id4;
 	reg [`DW-1:0] e_tmp2, e_tmp3, e_tmp4;
 	reg e_prop_next2, e_prop_next3, e_prop_next4;
-	reg [`DW-1:0] c_L1, c_L2, e_L1, e_L2, e_L3;
+	reg [`DW-1:0] c_L1, c_L2, c_L3, e_L1, e_L2, e_L3;
 	
 	always @* begin : comb // Combinational logic between levels
 		delete_comb( 	del_index1, count,
@@ -173,6 +176,7 @@ module prio_q(
 			else begin
 				prop_next2 <= 0;
 				del_next2 <= 0;
+            tmp2<= 0;
 			end
 		end
 	end
@@ -201,9 +205,9 @@ module prio_q(
 		end
 		else begin
 			if (prop_next2 && !deq) begin 	 
-			/* 	New data descending from upper level and deque isn't issued for this clock cycle.
-				A deque would take the propagating data and place it at the root so that it can
-				propagate down again for a deque phase. */	
+			/* 	New data descending from upper level and dequeue isn't issued for this clock cycle.
+				A dequeue would take the propagating data and place it at the root so that it can
+				propagate down again for a dequeue phase. */	
 				tmp3 <= e_tmp3;
 				L2[index2] <= e_L2;
 				prop_next3 <= e_prop_next3;
@@ -226,15 +230,24 @@ module prio_q(
 		end
 	end
 	
-	
+   reg last_enq;
+   reg [1:0] last_2_deq;
 	always @ (posedge CLK) begin
 		dest_level_old <= dest_level;
+      last_enq <= (rst_n) ? enq : 0;
+      last_2_deq <= (rst_n) ? {last_2_deq[0], deq} : 2'b0;
 	end
 	
 	assign index3 = path34[`HD-1:`HD-3]; // get node index to operate on
 	assign del_index3 = {1'b1, del_path3};
 	
 	always @* begin
+		delete_comb(	del_index3, count - (last_enq ),
+							L4[del_path3*2], L4[del_path3*2+1],
+							tmp3, c_tmp4,
+							c_L3,
+							c_del_next4, c_del_child_id4
+		);
 		insert_comb(	(dest_level_old == 'h3), L3[index3], tmp3,
 						e_tmp4, e_L3, e_prop_next4
 		);
@@ -247,14 +260,47 @@ module prio_q(
 		end
 		else begin
 			if (prop_next3) begin // New data descending from upper level
+            tmp4 <= e_tmp4;
 				L3[index3] <= e_L3;
+            prop_next4 <= e_prop_next4;
+            
+            del_next4 <= 0;
 			end
 			else if (del_next3 == 1) begin
-				L3[del_path3] <= tmp3;
+				L3[del_path3] <= c_L3;
+            tmp4 <= c_tmp4;
+            del_next4 <= c_del_next4;
+            del_path4 <= {del_path3, c_del_child_id4};
+            
+            prop_next4 <= 0;
+         end
+         else begin
+            prop_next4 <= 0;
+            del_next4 <= 0;
+            tmp4 <= 0;
+         end
+		end
+   end
+   
+   // Level 4
+	assign index4 = path34[`HD-1:`HD-4]; // get node index to operate on
+	assign del_index4 = {del_next4, del_path4};
+	
+	always @ (posedge CLK or negedge rst_n) begin // Level 4
+		if(!rst_n) begin : reset_L4
+			integer i;
+			for (i = 0; i < 16; i = i+1)	L4[i] <= 0;
+		end
+		else begin
+			if (prop_next4) begin 	 
+				L4[index4] <= tmp4;
+			end
+			else if (del_next4 == 1) begin
+				L4[del_path4] <= tmp4;
 			end
 		end
-	end
-	
+   end
+   
 	task automatic insert_comb;
 
 		input target_level;	// True if this is the destination level
