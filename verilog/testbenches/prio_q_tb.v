@@ -74,13 +74,13 @@ module prio_q_tb( );
 
 // Instantiate module under test
    prio_q DUT (
-      .CLK(clk),
+      .clk(clk),
       .rst_n(rst_n),
       .enq (enq),
       .deq (deq),
       .inp_data({16'b0, inp_data}),
       .out_data(out_data),
-      .count(count)
+      .elem_cnt(count)
    );
 
 `ifdef PRIO_Q_DUMP_HEAP_CONTENTS
@@ -107,7 +107,7 @@ module prio_q_tb( );
          for(p = 0; p < 4; p = p+1) $fwrite(mem_file, "%3d,", DUT.L2[p]);
          for(p = 0; p < 8; p = p+1) $fwrite(mem_file, "%3d,", DUT.L3[p]);
          for(p = 0; p < 16; p = p+1) $fwrite(mem_file, "%3d,", DUT.L4[p]);
-         $fwrite(mem_file, "%3d,%3d,%3d,%3d,%3d\n",DUT.tmp1, DUT.tmp2, DUT.tmp3, DUT.tmp4, DUT.count);
+         $fwrite(mem_file, "%3d,%3d,%3d,%3d,%3d\n",DUT.tmp1, DUT.tmp2, DUT.tmp3, DUT.tmp4, DUT.elem_cnt);
       end
    end
 `endif

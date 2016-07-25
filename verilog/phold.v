@@ -250,13 +250,13 @@ endgenerate
 
 // Event queue instantiation
 prio_q #(.CW(`TW)) queue(
-	.CLK(clk),
+	.clk(clk),
 	.rst_n(rst_n),
 	.enq(enq),
 	.deq( deq ),
 	.inp_data(new_event),
 	.out_data(queue_out),
-	.count(event_count)
+	.elem_cnt(event_count)
 );
 
 // PRNG instantiation
