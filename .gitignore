@@ -15,4 +15,7 @@ sim/*
 # ignore all logs everywhere
 **/*.log
 
+# IDE files
+verilog/.dvt
+verilog/.project
 
