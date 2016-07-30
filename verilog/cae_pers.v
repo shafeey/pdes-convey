@@ -106,7 +106,7 @@ module cae_pers #(
 `include "pdk_fpga_param.vh"
 `include "aemc_messages.vh"
 
-initial begin
+/*initial begin
 	$dumpfile("dump.vcd");
 	$dumpvars(1, testbench.cae_fpga0.ae_top.core.cae_pers.clk, 
 				testbench.cae_fpga0.ae_top.core.cae_pers.inst_phold,
@@ -116,7 +116,7 @@ initial begin
 	$dumpon;
 	#50;
 	$dumpoff;
-end
+end */
 	//**************************************************************************
 	//			   PERSONALITY SPECIFIC LOGIC
 	//**************************************************************************

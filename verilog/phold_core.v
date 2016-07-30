@@ -179,7 +179,7 @@ module phold_core
     end
 	
 	reg [2:0] counter;
-	always@(posedge clk or negedge rst_n) begin
+	always@(posedge clk) begin
 		r_state <= (rst_n) ? c_state : 1'b0;
 		counter <= (rst_n) ? 
 						(r_state == RND_DLY ? counter + 1 : 3'b0) : 3'b0; 
