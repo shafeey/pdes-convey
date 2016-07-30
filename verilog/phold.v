@@ -29,6 +29,7 @@ module phold #(
    
    localparam MSG_WID = 32;         // Width of event message
    localparam TIME_WID = 16;        // Width of timestamps
+   localparam NUM_CORE =  4;        
    localparam SIM_END_TIME = 4000;  // Target GVT value when process returns
 
 /*
@@ -276,38 +277,37 @@ LFSR prng (
 /*
  *	GVT calculation
  */
- reg [TIME_WID-1:0] loc_times[3:0];
- reg [3:0] core_act;
- wire [TIME_WID-1:0] t_gvt;
- integer l_t_i;
+ reg [TIME_WID-1:0] core_times[3:0];
+ reg [3:0] core_vld;
+ wire [TIME_WID-1:0] c_gvt;
 
  always @(posedge clk or negedge rst_n) begin
-	if(~rst_n) begin
+	if(~rst_n) begin : reset_core_time_reg
+      integer i;
 		gvt <= 0;
-		core_act <= 0;
-		for(l_t_i = 0; l_t_i <4; l_t_i = l_t_i + 1) loc_times[l_t_i] <= 0;
+		core_vld <= 0;
+		for(i = 0; i <4; i = i + 1) core_times[i] <= 0;
 	end
 	else begin
 		if(deq) begin
-			loc_times[send_egnt] <= event_time;
-			core_act[send_egnt] <= 1;
+			core_times[send_egnt] <= event_time;
+			core_vld[send_egnt] <= 1;
 		end
 		else if(enq) begin
-			core_act[rcv_vld] <= 0;
+			core_vld[rcv_vld] <= 0;
 		end
-		gvt <= (r_state == RUNNING) ? t_gvt : gvt;
+		gvt <= (r_state == RUNNING) ? c_gvt : gvt;
 	end
-end
-
-assign t_gvt = minima( minima({core_act[0], loc_times[0]} , {core_act[1], loc_times[1]}),
-							minima({core_act[2], loc_times[2]} , {core_act[3], loc_times[3]})
-						);
-
-function [TIME_WID-1:0] minima;
-input [TIME_WID-1:0] i0, i1;
-begin
-	minima = i0 < i1 ? i0 : i1;
-end
-endfunction
-
+ end
+ 
+gvtmonitor #(
+   .NUM_CORE(NUM_CORE),
+   .TIME_WID(TIME_WID)
+) u_gvtmonitor (
+   .core_times(core_times),
+   .core_vld  (core_vld  ),
+   .next_event(queue_out ),
+   .gvt       (c_gvt     )
+);
+ 
 endmodule
