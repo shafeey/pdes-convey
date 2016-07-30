@@ -1,5 +1,3 @@
-`include "global_params.vh"
-
 module phold #(
 	parameter    NUM_MC_PORTS = 1,
 	parameter    MC_RTNCTL_WIDTH = 32
@@ -8,7 +6,7 @@ module phold #(
 	input rst_n,
 	
 	input [47:0]	addr,	
-	output reg [`TW-1:0] gvt,
+	output reg [TIME_WID-1:0] gvt,
 	output reg rtn_vld,
 	
 	output			mc_rq_vld,
@@ -27,7 +25,11 @@ module phold #(
 	input  [MC_RTNCTL_WIDTH-1:0]	mc_rs_rtnctl,
 	input  [63:0]	mc_rs_data,
 	output			mc_rs_stall
-);
+   );
+   
+   localparam MSG_WID = 32;         // Width of event message
+   localparam TIME_WID = 16;        // Width of timestamps
+   localparam SIM_END_TIME = 4000;  // Target GVT value when process returns
 
 /*
  * State Machine
@@ -57,7 +59,7 @@ always @* begin : state_transitions
 	READY:
 		c_state = RUNNING;
 	RUNNING:
-		if(gvt > `SIM_END_TIME) begin
+		if(gvt > SIM_END_TIME) begin
 			c_state = FINISHED;
 			c_rtn_vld = 1;
 		end
@@ -100,20 +102,20 @@ assign init_complete = (init_counter == 2'd3);
  *	Events enqueue and dispatch control
  */
 wire enq, deq;
-wire [`DW-1:0] queue_out;
-wire  [`DW-1:0] new_event;
+wire [MSG_WID-1:0] queue_out;
+wire  [MSG_WID-1:0] new_event;
 wire [4:0]	event_count;
 
 wire new_event_available, core_available;
 wire [1:0] rcv_egnt, send_egnt;
 wire [3:0] rcv_vgnt, send_vgnt, rcv_vld, send_vld;
-wire [`DW-1:0] new_event_data[3:0];
-wire  [`DW-1:0] send_event_data;
+wire [MSG_WID-1:0] new_event_data[3:0];
+wire  [MSG_WID-1:0] send_event_data;
 
 assign enq = (r_state == INIT) | 
 				((r_state == RUNNING) ? new_event_available : 1'b0) ;
 assign deq = (r_state == RUNNING) ? (~new_event_available & core_available) : 0;
-assign new_event = (r_state == INIT) ? {init_counter, {`TW{1'b0}} }:
+assign new_event = (r_state == INIT) ? {init_counter, {TIME_WID{1'b0}} }:
 						new_event_data[rcv_egnt];
 						
 
@@ -122,7 +124,7 @@ always @(posedge clk) begin
 	if (deq) $display("GVT: %d, \tEvent sent to CORE %d,\ttime: %d, LP: %d",
 						gvt, send_egnt, event_time, event_id);
 	if (enq) $display("GVT: %d, \t\t\t\t\t\tNew event from CORE %d,\ttime: %d, LP: %d",
-						gvt, rcv_egnt, new_event[`TW-1:0], new_event[`TW +: 3]);
+						gvt, rcv_egnt, new_event[TIME_WID-1:0], new_event[TIME_WID +: 3]);
 end
 
 
@@ -169,10 +171,10 @@ rrarb  mem_rrarb (	// Memory access arbiter
 );
 
 wire [7:0] random_in;
-wire [`TW-1:0] event_time;
+wire [TIME_WID-1:0] event_time;
 wire [2:0] event_id;
-assign event_time = send_event_data[`TW-1:0];
-assign event_id = send_event_data[`TW +: 3];
+assign event_time = send_event_data[TIME_WID-1:0];
+assign event_id = send_event_data[TIME_WID +: 3];
 
 wire [3:0] p_mc_rq_vld;
 wire [2:0] p_mc_rq_cmd[3:0];
@@ -201,7 +203,7 @@ generate
 for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	wire event_valid, new_event_ready, ack, ready;
 	wire [2:0] new_event_target;
-	wire [`TW-1:0] new_event_time;
+	wire [TIME_WID-1:0] new_event_time;
 
 	phold_core
 	 #(
@@ -249,7 +251,7 @@ end
 endgenerate
 
 // Event queue instantiation
-prio_q #(.CMP_WID(`TW)) queue(
+prio_q #(.CMP_WID(TIME_WID)) queue(
 	.clk(clk),
 	.rst_n(rst_n),
 	.enq(enq),
@@ -274,9 +276,9 @@ LFSR prng (
 /*
  *	GVT calculation
  */
- reg [`TW-1:0] loc_times[3:0];
+ reg [TIME_WID-1:0] loc_times[3:0];
  reg [3:0] core_act;
- wire [`TW-1:0] t_gvt;
+ wire [TIME_WID-1:0] t_gvt;
  integer l_t_i;
 
  always @(posedge clk or negedge rst_n) begin
@@ -301,8 +303,8 @@ assign t_gvt = minima( minima({core_act[0], loc_times[0]} , {core_act[1], loc_ti
 							minima({core_act[2], loc_times[2]} , {core_act[3], loc_times[3]})
 						);
 
-function [`TW-1:0] minima;
-input [`TW-1:0] i0, i1;
+function [TIME_WID-1:0] minima;
+input [TIME_WID-1:0] i0, i1;
 begin
 	minima = i0 < i1 ? i0 : i1;
 end
