@@ -300,7 +300,7 @@ LFSR prng (
 	end
  end
  
-gvtmonitor #(
+gvt_monitor #(
    .NUM_CORE(NUM_CORE),
    .TIME_WID(TIME_WID)
 ) u_gvtmonitor (

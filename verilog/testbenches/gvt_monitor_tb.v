@@ -11,7 +11,7 @@ module gvt_monitor_tb;
    reg        [TIME_WID-1:0]          next_event;
    wire       [TIME_WID-1:0]          gvt;
 
-   gvtmonitor #(
+   gvt_monitor #(
       .NUM_CORE(NUM_CORE),
       .TIME_WID(TIME_WID)
    ) dut (

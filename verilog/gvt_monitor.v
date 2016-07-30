@@ -1,4 +1,4 @@
-module gvtmonitor #(
+module gvt_monitor #(
       parameter NUM_CORE = 4,
       parameter TIME_WID = 16
    )(
