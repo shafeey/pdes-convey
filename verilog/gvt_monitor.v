@@ -2,22 +2,11 @@ module gvtmonitor #(
       parameter NUM_CORE = 4,
       parameter TIME_WID = 16
    )(
-      input                             clk,
       input  [TIME_WID*NUM_CORE-1:0]    core_times,
       input  [NUM_CORE-1:0]             core_vld,
       input  [TIME_WID-1:0]             next_event,
-      output [TIME_WID-1:0]             gvt,
-      input                             rst_n
+      output [TIME_WID-1:0]             gvt
    );
-
-   wire [TIME_WID-1:0] c_gvt;
-   reg  [TIME_WID-1:0] r_gvt;
-
-   assign gvt = r_gvt;
-
-   always @(posedge clk) begin
-      r_gvt <= (rst_n) ? c_gvt : 0;
-   end
 
    generate
       genvar i, j;
@@ -47,7 +36,7 @@ module gvtmonitor #(
          end
       end
 
-      assign c_gvt = gen_levels[0].cmp[0].min_vld ?
+      assign gvt = gen_levels[0].cmp[0].min_vld ?
                         (gen_levels[0].cmp[0].min < next_event ? gen_levels[0].cmp[0].min : next_event) :
                         next_event;
    endgenerate

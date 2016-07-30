@@ -10,18 +10,15 @@ module gvt_monitor_tb;
    reg        [NUM_CORE-1:0]          core_vld;
    reg        [TIME_WID-1:0]          next_event;
    wire       [TIME_WID-1:0]          gvt;
-   reg                                rst_n;
 
    gvtmonitor #(
       .NUM_CORE(NUM_CORE),
       .TIME_WID(TIME_WID)
    ) dut (
-      .clk       (clk       ),
       .core_times(core_times),
       .core_vld  (core_vld  ),
       .next_event(next_event),
-      .gvt       (gvt       ),
-      .rst_n     (rst_n     )
+      .gvt       (gvt       )
    );
 
    initial
@@ -30,10 +27,6 @@ module gvt_monitor_tb;
       core_times = 0;
       core_vld = 0;
       next_event = 0;
-      rst_n = 0;
-      
-      #20
-      rst_n = 1;
       
       next_event = 16'h25;
       @(posedge clk)
