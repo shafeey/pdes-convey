@@ -1,7 +1,9 @@
 module phold #(
 	parameter    NUM_MC_PORTS = 1,
-	parameter    MC_RTNCTL_WIDTH = 32
-)(
+	parameter    MC_RTNCTL_WIDTH = 32, // Width of timestamps
+   parameter    SIM_END_TIME = 8000,  // Target GVT value when process returns
+   parameter    TIME_WID = 16
+   )(
 	input clk,
 	input rst_n,
 	
@@ -28,9 +30,7 @@ module phold #(
    );
    
    localparam MSG_WID = 32;         // Width of event message
-   localparam TIME_WID = 16;        // Width of timestamps
    localparam NUM_CORE =  4;        
-   localparam SIM_END_TIME = 4000;  // Target GVT value when process returns
 
 /*
  * State Machine
@@ -277,7 +277,7 @@ LFSR prng (
 /*
  *	GVT calculation
  */
- reg [TIME_WID-1:0] core_times[3:0];
+ reg [TIME_WID*NUM_CORE-1:0] core_times;
  reg [3:0] core_vld;
  wire [TIME_WID-1:0] c_gvt;
 
@@ -286,11 +286,11 @@ LFSR prng (
       integer i;
 		gvt <= 0;
 		core_vld <= 0;
-		for(i = 0; i <4; i = i + 1) core_times[i] <= 0;
+		for(i = 0; i < NUM_CORE; i = i + 1) core_times <= 0;
 	end
 	else begin
 		if(deq) begin
-			core_times[send_egnt] <= event_time;
+			core_times[TIME_WID*send_egnt +: TIME_WID] <= event_time;
 			core_vld[send_egnt] <= 1;
 		end
 		else if(enq) begin
@@ -306,7 +306,7 @@ gvt_monitor #(
 ) u_gvtmonitor (
    .core_times(core_times),
    .core_vld  (core_vld  ),
-   .next_event(queue_out ),
+   .next_event(queue_out[0 +: TIME_WID] ),
    .gvt       (c_gvt     )
 );
  
