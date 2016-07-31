@@ -77,8 +77,8 @@ module phold_core
 	assign mc_rq_vld = r_rq_vld;
 	assign mc_rq_cmd = r_rq_cmd;
 	assign mc_rq_rtnctl ={ {(32-NCB){1'b0}}, core_id};
-	assign mc_rq_data = {14'b0, core_id, 13'b0, event_id, 16'b0, event_time};
-	assign mc_rq_vadr = addr + event_id * 8;
+	assign mc_rq_data = {14'b0, core_id, 13'b0, local_id, 16'b0, event_time};
+	assign mc_rq_vadr = addr + local_id * 8;
 	assign mc_rq_scmd = 4'h0;
 	assign mc_rq_size = MC_SIZE_QUAD;	// all requests are 8-byte
 	assign mc_rq_flush = 1'b0;		// write flush not used in this design
