@@ -43,6 +43,9 @@ module prio_q_tb( );
    end
 
    initial begin // Read stimuli from data file
+      enq = 0;
+      deq = 0;
+      inp_data = 0;
       @(posedge rst_n);
       data_file = $fopen("testbenches/prio_q_test_data.dat", "r");
       if (data_file == 0) begin
@@ -80,6 +83,8 @@ module prio_q_tb( );
       .deq (deq),
       .inp_data({16'b0, inp_data}),
       .out_data(out_data),
+      .full(),
+      .empty(),
       .elem_cnt(count)
    );
 
