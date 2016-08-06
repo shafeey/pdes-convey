@@ -17,7 +17,7 @@ module gvt_monitor #(
 
             assign min = (l_vld && r_vld) ?
                               (left < right ? left : right) :
-                              (left ? left : right);
+                              (l_vld ? left : right);
             assign min_vld = (l_vld || r_vld);
 
             if(j+1 == $clog2(NUM_CORE)) begin
