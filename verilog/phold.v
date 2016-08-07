@@ -31,6 +31,7 @@ module phold #(
    
    localparam MSG_WID = 32;         // Width of event message
    localparam NUM_CORE =  4;        
+   localparam NUM_MEM_BYTE = 16;
 
 /*
  * State Machine
@@ -165,7 +166,7 @@ rrarb  mem_rrarb (	// Memory access arbiter
 	.clk    ( clk ),
 	.reset  ( ~rst_n ),
 	.req    ( mem_req ),
-	.stall  ( 1'b0 ),
+	.stall  ( mem_req[mem_egnt] && mem_vgnt[mem_egnt] ),
 	.vgnt   ( mem_vgnt ),
 	.eval   ( mem_req_vld ),
 	.egnt   ( mem_egnt )
@@ -207,7 +208,7 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	wire [TIME_WID-1:0] new_event_time;
 
 	phold_core
-	 #(
+	 #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ), 
 	   .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH )
 	)  phold_core_inst
 	 (

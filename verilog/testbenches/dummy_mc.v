@@ -74,7 +74,7 @@ module dummy_mc #(
 
       mc_rs_scmd = (rq_vld) ? rq_scmd : 0;
       mc_rs_rtnctl = (rq_vld) ? rq_rtnctl : 0;
-      mc_rs_data = (rq_vld) ? mem[rq_vadr] : 0;
+      mc_rs_data = (rq_vld) ? mem[rq_vadr>>3] : 0;
       mc_rs_vld = rq_vld;
 
       mc_rq_stall = 0;

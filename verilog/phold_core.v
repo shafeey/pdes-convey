@@ -5,6 +5,7 @@ module phold_core
 	parameter NIDB = 3, // Number of bits in ID. Number of Available LP < 2 ^ NIDB
 	parameter NRB = 8,	// Number of bits in Random number generator
 	parameter NCB = 2,	//  Number of bits in core id;
+   parameter NUM_MEM_BYTE = 16,
 	parameter    MC_RTNCTL_WIDTH = 32
 	)(
 	input clk,
@@ -66,6 +67,13 @@ module phold_core
    reg  [2:0]   r_rs_cmd;
    reg  [31:0]  r_rs_rtnctl;
    reg  [63:0]  r_rs_data;
+   reg          r_hold;
+   reg          c_hold;
+   reg          r_rtn1;
+   reg          r_rtn2;
+   reg          c_rtn1;
+   reg          c_rtn2;
+   reg [NUM_MEM_BYTE*8-1:0] rtn_data;
 
    reg          r_mc_rq_stall;
    
@@ -76,9 +84,9 @@ module phold_core
    // MC interface
 	assign mc_rq_vld = r_rq_vld;
 	assign mc_rq_cmd = r_rq_cmd;
-	assign mc_rq_rtnctl ={ {(32-NCB){1'b0}}, core_id};
-	assign mc_rq_data = {14'b0, core_id, 13'b0, local_id, 16'b0, event_time};
-	assign mc_rq_vadr = addr + local_id * 8;
+	assign mc_rq_rtnctl ={ {(32-NCB-1){1'b0}},r_hold, core_id}; // NOTE: verify number of preceding zeros when making adjustment
+	assign mc_rq_data = {r_hold, 13'b0, core_id, 13'b0, local_id, 16'b0, event_time};
+	assign mc_rq_vadr = r_rq_vadr;
 	assign mc_rq_scmd = 4'h0;
 	assign mc_rq_size = MC_SIZE_QUAD;	// all requests are 8-byte
 	assign mc_rq_flush = 1'b0;		// write flush not used in this design
@@ -108,12 +116,16 @@ module phold_core
 	reg c_event_ready;
 	wire finished;
 	wire ld_rtn_vld, st_rtn_vld;
+	wire ld_rtn_vld2, st_rtn_vld2;
 	
 	always@* begin
 		c_state = r_state;
 		c_event_ready = new_event_ready;
 		c_rq_vld = 1'b0;
 		c_rq_cmd = AEMC_CMD_IDLE;
+      c_hold = 0;
+      c_rtn1 = r_rtn1;
+      c_rtn2 = r_rtn2;
 		
 		case(r_state)
 		IDLE : begin
@@ -123,32 +135,54 @@ module phold_core
 		end
 		LD_MEM: begin
 			if(~r_mc_rq_stall) begin
+            c_rq_vadr = addr + local_id * NUM_MEM_BYTE;
 				c_rq_vld = 1'b1;
 				c_rq_cmd = AEMC_CMD_RD8;
 			end
 			if(mem_gnt) begin
-				c_state = LD_RTN;
-				c_rq_vld = 1'b0;
+            c_rq_vadr = addr + local_id * NUM_MEM_BYTE + 8;
+            c_hold = 1;
+            if(r_hold) begin
+               c_state = LD_RTN;
+               c_rq_vld = 1'b0;
+            end 
 			end
 		end
 		LD_RTN: begin
-			if(ld_rtn_vld) c_state = RND_DLY;
+			if(ld_rtn_vld) c_rtn1 = 1;
+         if(ld_rtn_vld2) c_rtn2 = 1;
+         
+         if(r_rtn1 && r_rtn2) begin
+            c_state = RND_DLY;
+            c_rtn1 = 0;
+            c_rtn2 = 0;
+         end
 		end
 		RND_DLY: begin
 			if (finished) c_state = ST_MEM;	
 		end
 		ST_MEM: begin
 			if(~r_mc_rq_stall) begin
+            c_rq_vadr = addr + local_id * NUM_MEM_BYTE;
 				c_rq_vld = 1'b1;
 				c_rq_cmd = AEMC_CMD_WR8;
 			end
 			if(mem_gnt) begin
-				c_state = ST_RTN;
-				c_rq_vld = 0;
+            c_rq_vadr = addr + local_id * NUM_MEM_BYTE + 8;
+            c_hold = 1;
+            if(r_hold) begin
+   				c_state = ST_RTN;
+   				c_rq_vld = 0;
+            end
 			end
 		end
 		ST_RTN: begin
-			if(st_rtn_vld) begin
+         if(st_rtn_vld) c_rtn1 = 1;
+         if(st_rtn_vld2) c_rtn2 = 1;
+         
+			if(r_rtn1 && r_rtn2) begin
+            c_rtn1 = 0;
+            c_rtn2 = 0;
 				c_state = WAIT;
 				c_event_ready = 1;
 			end
@@ -164,10 +198,14 @@ module phold_core
 	
 	assign ready = (r_state == IDLE);
 	assign ld_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_RD8_DATA) &&
-							(r_rs_rtnctl[NCB-1:0] == core_id);
+							(r_rs_rtnctl[NCB:0] == { 1'b0, core_id});
 	assign st_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_WR_CMP) &&
-							(r_rs_rtnctl[NCB-1:0] == core_id);
+							(r_rs_rtnctl[NCB:0] == { 1'b0, core_id});
 							
+	assign ld_rtn_vld2 = r_rs_vld && (r_rs_cmd == MCAE_CMD_RD8_DATA) &&
+							(r_rs_rtnctl[NCB:0] == { 1'b1, core_id});
+	assign st_rtn_vld2 = r_rs_vld && (r_rs_cmd == MCAE_CMD_WR_CMP) &&
+							(r_rs_rtnctl[NCB:0] == { 1'b1, core_id});
 	
 							
 	always @(posedge clk) begin
@@ -189,6 +227,12 @@ module phold_core
 		new_event_target <= rnd[NRB-1:5];
 		r_rq_vld <= rst_n ? c_rq_vld : 0;
 		r_rq_cmd <= c_rq_cmd;
+      r_rq_vadr <= c_rq_vadr;
+      r_hold <= rst_n ? c_hold : 0;
+      r_rtn1 <= rst_n ? c_rtn1 : 0;
+      r_rtn2 <= rst_n ? c_rtn2 : 0;
+      rtn_data[63:0] <= rst_n ? (ld_rtn_vld ? r_rs_data : rtn_data[63:0]) : 0;
+      rtn_data[127:64] <= rst_n ? (ld_rtn_vld2 ? r_rs_data : rtn_data[127:64]) : 0;
 	end
 	
 	assign finished = (counter == rnd[2:0]); // Simulate a random processing delay
