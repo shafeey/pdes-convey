@@ -26,6 +26,9 @@ module core_monitor #(
       input                 rcv_msg_vld,  // Message sent from cores to queue
       input  [$clog2(NUM_CORE)-1:0]  core_id,
       output [NUM_CORE-1:0] stall,        // Stall signals for the cores
+      
+      output [TIME_WID-1:0]   min_time,     // Smallest timestamp within active cores
+      output                min_time_vld,
 
       input                 reset
    );
@@ -50,6 +53,7 @@ module core_monitor #(
    assign event_time = msg[0 +: TIME_WID];
    
    assign stall = r_stall;
+   // TODO :Fix assignment of core times;
 
    always @(posedge clk) begin 
       if(reset) begin : reset_table
@@ -137,5 +141,41 @@ module core_monitor #(
       assign min_id_vld = m_id[0].cmp[0].min_vld;
 
    endgenerate
+   
+   /**
+    * Find the minimum timestamp among the active cores
+    */
+    generate
+      genvar g, h;
+      for (h = 0; h < NB_CORE; h = h + 1) begin : m_time
+         for(g = 0; g < 2**h; g = g+1) begin : cmp
+            wire [TIME_WID-1:0]  left, right, min;
+            wire                 l_vld, r_vld, min_vld;
 
+            assign min = (l_vld && r_vld) ?
+                              (left < right ? left : right) :
+                              (l_vld ? left : right);
+            assign min_vld = (l_vld || r_vld);
+
+            if(h+1 == $clog2(NUM_CORE)) begin
+               /* Top level, assign from input signals */
+               assign l_vld = core_active[g*2];
+               assign left = core_times[g*2];
+               assign r_vld = core_active[g*2 + 1];
+               assign right = core_times[g*2 + 1];
+            end
+            else begin
+               assign l_vld = m_time[h+1].cmp[g*2].min_vld;
+               assign left = m_time[h+1].cmp[g*2].min;
+               assign r_vld = m_time[h+1].cmp[g*2 + 1].min_vld;
+               assign right = m_time[h+1].cmp[g*2 + 1].min;
+            end
+         end
+      end
+
+      assign min_time = m_time[0].cmp[0].min;
+      assign min_time_vld = m_time[0].cmp[0].min_vld;
+
+   endgenerate
+   
 endmodule
