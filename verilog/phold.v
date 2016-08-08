@@ -31,8 +31,20 @@ module phold #(
    
    localparam MSG_WID = 32;         // Width of event message
    localparam NUM_CORE =  4;        
+   localparam NUM_LP = 8;
    localparam NUM_MEM_BYTE = 16;
-
+   
+   wire [MSG_WID-1:0] msg;
+   wire sent_msg_vld;
+   wire rcv_msg_vld;
+   wire [NUM_CORE-1:0] stall;
+   wire [TIME_WID-1:0] min_time;
+   wire min_time_vld;
+   wire [$clog2(NUM_CORE)-1:0] core_id;
+   
+   wire q_full;
+   wire q_empty;
+   
 /*
  * State Machine
  */
@@ -260,8 +272,8 @@ prio_q #(.CMP_WID(TIME_WID)) queue(
 	.deq( deq ),
 	.inp_data(new_event),
 	.out_data(queue_out),
-   .full(),
-   .empty(),
+   .full( q_full ),
+   .empty( q_empty ),
 	.elem_cnt(event_count)
 );
 
@@ -273,42 +285,47 @@ LFSR prng (
    .next  ( next_rnd ),
    .seed  ( seed ),
    .rnd   ( random_in )
-);
+   );
+
+   assign sent_msg_vld = deq;
+   assign rcv_msg_vld = enq;
+   assign msg = sent_msg_vld ? queue_out : (rcv_msg_vld ? new_event : 0);
+   assign core_id = sent_msg_vld ? send_egnt : (rcv_msg_vld ? rcv_egnt : 0);
+      
+   core_monitor #(
+      .NUM_CORE(NUM_CORE),
+      .NUM_LP  (NUM_LP  ),
+      .TIME_WID(TIME_WID),
+      .MSG_WID (MSG_WID )
+   ) u_core_monitor (
+      .clk         (clk         ),
+      .msg         (msg         ),
+      .sent_msg_vld(sent_msg_vld),
+      .rcv_msg_vld (rcv_msg_vld ),
+      .core_id     (core_id     ),
+      .stall       (stall       ),
+      .min_time    (min_time    ),
+      .min_time_vld(min_time_vld),
+      .reset       ( ~rst_n )
+   );
+
 
 /*
  *	GVT calculation
  */
- reg [TIME_WID*NUM_CORE-1:0] core_times;
- reg [3:0] core_vld;
  wire [TIME_WID-1:0] c_gvt;
 
  always @(posedge clk or negedge rst_n) begin
-	if(~rst_n) begin : reset_core_time_reg
-      integer i;
+	if(~rst_n) begin 
 		gvt <= 0;
-		core_vld <= 0;
-		for(i = 0; i < NUM_CORE; i = i + 1) core_times <= 0;
 	end
 	else begin
-		if(deq) begin
-			core_times[TIME_WID*send_egnt +: TIME_WID] <= event_time;
-			core_vld[send_egnt] <= 1;
-		end
-		else if(enq) begin
-			core_vld[rcv_vld] <= 0;
-		end
 		gvt <= (r_state == RUNNING) ? c_gvt : gvt;
 	end
  end
  
-gvt_monitor #(
-   .NUM_CORE(NUM_CORE),
-   .TIME_WID(TIME_WID)
-) u_gvtmonitor (
-   .core_times(core_times),
-   .core_vld  (core_vld  ),
-   .next_event(queue_out[0 +: TIME_WID] ),
-   .gvt       (c_gvt     )
-);
+ assign c_gvt = (min_time_vld && !q_empty) ? 
+                     (min_time < queue_out[0 +: TIME_WID] ? min_time : queue_out[0 +: TIME_WID]) :
+                        (min_time_vld ? min_time : queue_out[0 +: TIME_WID]);
  
 endmodule
