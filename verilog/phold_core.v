@@ -27,6 +27,7 @@ module phold_core
 	output reg [NIDB-1:0] new_event_target,
 	output reg new_event_ready,
 	
+   input stall,
 	output ready,
 	input ack,
 	
@@ -104,13 +105,16 @@ module phold_core
 		end
 	end
 
-	localparam 	IDLE = 3'd0,
-				LD_MEM = 3'd1,
-				LD_RTN = 3'd2,
-				RND_DLY = 3'd3,
-				ST_MEM = 3'd4,
-				ST_RTN = 3'd5,
-				WAIT = 3'd6;
+   // States
+	localparam IDLE = 3'd0;
+   localparam LD_MEM = 3'd1;
+	localparam LD_RTN = 3'd2;
+	localparam RND_DLY = 3'd3;
+	localparam ST_MEM = 3'd4;
+	localparam ST_RTN = 3'd5;
+	localparam WAIT = 3'd6;
+	localparam STALL = 3'd7;
+            
 				
 	reg [2:0] c_state, r_state;
 	reg c_event_ready;
@@ -130,9 +134,13 @@ module phold_core
 		case(r_state)
 		IDLE : begin
 			if(event_valid) begin
-				c_state = LD_MEM;
+				c_state = stall ? STALL : LD_MEM;
 			end
-		end
+      end
+      STALL : begin
+         if(!stall)
+            c_state = LD_MEM;
+      end
 		LD_MEM: begin
 			if(~r_mc_rq_stall) begin
             c_rq_vadr = addr + local_id * NUM_MEM_BYTE;

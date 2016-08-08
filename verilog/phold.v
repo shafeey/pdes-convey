@@ -235,6 +235,7 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	   .new_event_time   ( new_event_time ),
 	   .new_event_target ( new_event_target ),
 	   .new_event_ready  ( new_event_ready ),
+	   .stall            ( stall[g] ),
 	   .ready            ( ready ),
 	   .ack              ( ack ),
 	   .mc_rq_vld        ( p_mc_rq_vld[g] ),
