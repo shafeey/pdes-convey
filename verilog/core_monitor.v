@@ -41,6 +41,7 @@ module core_monitor #(
    reg                   core_active [0:NUM_CORE-1];
    
    reg    [NUM_CORE-1:0] r_stall;
+   reg    [NUM_CORE-1:0] c_stall;
 
    wire   [TIME_WID-1:0] event_time;
 
@@ -48,12 +49,12 @@ module core_monitor #(
    wire   [NB_CORE-1:0]  min_id;
    wire                  min_id_vld;
    wire   [NUM_CORE-1:0] match;
+   wire   [NUM_CORE-1:0] match_rcv; // Match LP id in other cores when receiving events
 
    assign LP_id = msg[TIME_WID +: NB_LP];
    assign event_time = msg[0 +: TIME_WID];
    
-   assign stall = r_stall;
-   // TODO :Fix assignment of core times;
+   assign stall = r_stall | c_stall;
 
    always @(posedge clk) begin 
       if(reset) begin : reset_table
@@ -78,23 +79,33 @@ module core_monitor #(
 
    /**
     * Compare the LP id with all the ACTIVE cores' LP and set the match bit
-    * Exclude the core that is sending/receiving the event 
+    * Exclude the core that is receiving the event 
     */
    genvar m;
    for(m=0; m<NUM_CORE; m=m+1) begin : mtc
       assign match[m] = (core_active[m] && core_LP_id[m] == LP_id && core_id != m);
    end
+   
+   /**
+    * Compare the LP id of the core that's returning an event with the LP id of
+    * other active cores and set match bit. Exclude the core that is returning. 
+    */
+   for(m=0; m<NUM_CORE; m=m+1) begin : mtc_min
+      assign match_rcv[m] = (core_active[m] && core_LP_id[m] == core_LP_id[core_id] && core_id != m);
+   end
 
    // Stall signal generation
+   always @* begin
+      c_stall = r_stall;
+      if(sent_msg_vld && (|match)) // same LP exists in another core, stall
+         c_stall[core_id] <= 1;
+      else if(rcv_msg_vld && min_id_vld) 
+         // Reset stall for core with smallest timestamp (if any)
+         c_stall[min_id] <= 0;
+   end
+                        
    always @(posedge clk) begin
-      if(reset) r_stall <= 0;
-      else begin
-         if(sent_msg_vld && (|match)) // same LP exists in another core, stall
-            r_stall[core_id] <= 1;
-         else if(rcv_msg_vld && min_id_vld) 
-            // Reset stall for core with smallest timestamp (if any)
-            r_stall[min_id] <= 0;
-      end 
+      r_stall <= reset ? 0 : c_stall;
    end
    
    /**
@@ -119,10 +130,10 @@ module core_monitor #(
 
             if(j+1 == $clog2(NUM_CORE)) begin
                /* Top level, assign from input signals */
-               assign l_vld = match[i*2];
+               assign l_vld = match_rcv[i*2];
                assign left = core_times[i*2];
                assign left_idx = {i, 1'b0};
-               assign r_vld = match[i*2 + 1];
+               assign r_vld = match_rcv[i*2 + 1];
                assign right = core_times[i*2 + 1];
                assign right_idx = {i, 1'b1};
             end
