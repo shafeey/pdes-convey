@@ -33,8 +33,8 @@ module core_monitor #(
       input                 reset
    );
 
-   localparam NB_CORE = $clog2(NUM_CORE);
-   localparam NB_LP =   $clog2(NUM_LP);
+   parameter NB_CORE = $clog2(NUM_CORE);
+   parameter NB_LP =   $clog2(NUM_LP);
 
    reg    [TIME_WID-1:0] core_times [0:NUM_CORE-1];
    reg    [NB_LP-1:0]    core_LP_id [0:NUM_CORE-1];
@@ -128,7 +128,7 @@ module core_monitor #(
                               (l_vld ? left_idx : right_idx);
             assign min_vld = (l_vld || r_vld);
 
-            if(j+1 == $clog2(NUM_CORE)) begin
+            if(j+1 == NB_CORE) begin
                /* Top level, assign from input signals */
                assign l_vld = match_rcv[i*2];
                assign left = core_times[i*2];
@@ -168,7 +168,7 @@ module core_monitor #(
                               (l_vld ? left : right);
             assign min_vld = (l_vld || r_vld);
 
-            if(h+1 == $clog2(NUM_CORE)) begin
+            if(h+1 == NB_CORE) begin
                /* Top level, assign from input signals */
                assign l_vld = core_active[g*2];
                assign left = core_times[g*2];
