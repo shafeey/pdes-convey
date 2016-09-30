@@ -30,6 +30,15 @@ module phold_core
    input stall,
 	output ready,
 	input ack,
+   
+   // Event History Interface
+   output            hist_rq,
+   output            hist_wr_en,
+   output [7:0]    hist_addr,
+   output [31:0]   hist_data_wr,
+   input       [31:0]   hist_data_rd,
+   input                hist_access_grant,
+   input [3:0]       hist_size,
 	
 	// Memory interface
 	output		mc_rq_vld,
@@ -109,19 +118,32 @@ module phold_core
 	localparam IDLE = 3'd0;
    localparam LD_MEM = 3'd1;
 	localparam LD_RTN = 3'd2;
-	localparam RND_DLY = 3'd3;
+   localparam READ_HIST = 4'd8;
+	localparam WRITE_HIST = 3'd3;
 	localparam ST_MEM = 3'd4;
 	localparam ST_RTN = 3'd5;
 	localparam WAIT = 3'd6;
 	localparam STALL = 3'd7;
             
 				
-	reg [2:0] c_state, r_state;
+	reg [3:0] c_state, r_state;
 	reg c_event_ready;
-	wire finished;
+	wire finished, read_hist_finished;
 	wire ld_rtn_vld, st_rtn_vld;
 	wire ld_rtn_vld2, st_rtn_vld2;
-	
+   
+   reg [7:0] c_hist_addr, r_hist_addr;
+   reg [31:0] c_hist_data_wr, d_hist_wr;
+   
+   reg hist_buf_rd, hist_buf_wr;
+   wire [31:0] hist_buf_data;
+   wire hist_buf_full, hist_buf_empty;
+   wire [4:0] hist_buf_count;
+   
+   reg [3:0] c_hist_cnt, r_hist_cnt;
+   reg c_hist_rq, r_hist_rq;
+   reg c_hist_wr, r_hist_wr;
+   
 	always@* begin
 		c_state = r_state;
 		c_event_ready = new_event_ready;
@@ -130,7 +152,11 @@ module phold_core
       c_hold = 0;
       c_rtn1 = r_rtn1;
       c_rtn2 = r_rtn2;
-		
+      
+      c_hist_cnt = 0;
+		c_hist_rq = 0;
+      c_hist_wr = 0;
+      
 		case(r_state)
 		IDLE : begin
 			if(event_valid) begin
@@ -161,14 +187,48 @@ module phold_core
          if(ld_rtn_vld2) c_rtn2 = 1;
          
          if(r_rtn1 && r_rtn2) begin
-            c_state = RND_DLY;
+            c_state = READ_HIST;
             c_rtn1 = 0;
             c_rtn2 = 0;
          end
 		end
-		RND_DLY: begin
-			if (finished) c_state = ST_MEM;	
-		end
+
+		READ_HIST: begin
+         if(hist_size == 0) begin
+            c_state = WRITE_HIST;
+         end 
+         else begin
+   			c_hist_rq = 1'b1;
+            c_hist_addr = local_id * 16 + r_hist_cnt;
+            c_hist_cnt = r_hist_cnt;
+            if(hist_access_grant) begin
+               c_hist_cnt = r_hist_cnt + 1;
+               if(r_hist_cnt == hist_size - 1 ) begin
+                  c_hist_cnt = 0;
+                  c_hist_rq = 0;
+         			c_state = WRITE_HIST;
+               end
+            end
+         end
+      end
+      
+ 		WRITE_HIST: begin
+         c_hist_rq = 1'b1;
+         c_hist_wr = 1'b1;
+         c_hist_addr = local_id * 16 + r_hist_cnt;
+         c_hist_data_wr = {core_id, 1'b0, local_id, r_hist_cnt};
+         c_hist_cnt = r_hist_cnt;
+         if(hist_access_grant) begin
+            c_hist_cnt = r_hist_cnt + 1;
+            if(r_hist_cnt == 3 ) begin
+               c_hist_cnt = 0;
+               c_hist_wr = 0;
+               c_hist_rq = 0;
+      			c_state = ST_MEM;
+            end
+         end
+		end     
+      
 		ST_MEM: begin
 			if(~r_mc_rq_stall) begin
             c_rq_vadr = addr + local_id * NUM_MEM_BYTE;
@@ -228,7 +288,7 @@ module phold_core
 	always@(posedge clk) begin
 		r_state <= (rst_n) ? c_state : 1'b0;
 		counter <= (rst_n) ? 
-						(r_state == RND_DLY ? counter + 1 : 3'b0) : 3'b0; 
+						(r_state == WRITE_HIST ? counter + 1 : 3'b0) : 3'b0; 
 		
 		new_event_ready <= rst_n ? c_event_ready : 0;
 		new_event_time <= local_time + 10 + rnd [4:0]; // Keep at least 10 units time gap between events
@@ -243,6 +303,45 @@ module phold_core
       rtn_data[127:64] <= rst_n ? (ld_rtn_vld2 ? r_rs_data : rtn_data[127:64]) : 0;
 	end
 	
-	assign finished = (counter == rnd[2:0]); // Simulate a random processing delay
+   always @(posedge clk or negedge rst_n) begin 
+      r_hist_cnt <= rst_n ? c_hist_cnt : 0;
+      r_hist_rq <= rst_n ? c_hist_rq : 0;
+      r_hist_wr <= rst_n ? c_hist_wr : 0;
+      
+      if(r_state == WRITE_HIST && local_id == 3) $display("Writing: core %h, address %h, data %h", core_id, hist_addr, hist_data_wr);
+      if(r_state == READ_HIST && local_id == 3) $display("Reading: core %h, address %h, data %h", core_id, hist_addr, hist_data_rd);
+      
+   end
+   assign hist_data_wr = c_hist_data_wr;
+      assign hist_addr = c_hist_addr;
+   assign hist_wr_en = r_hist_wr;
+   assign hist_rq = r_hist_rq;
+   
+   // assign hist_addr = {core_id, r_hist_cnt};
+   // assign hist_data_wr = {core_id, local_id, r_hist_cnt};
+   
+   always @(posedge clk or negedge rst_n) begin
+      if(~rst_n) begin
+         hist_buf_wr = 0;
+      end 
+      else begin
+         if(r_state == READ_HIST && hist_rq && hist_access_grant)
+               hist_buf_wr <= 1;
+         else
+            hist_buf_wr <= 0;
+      end 
+   end 
+
+   fifo_fwft_16x32 history_fifo (
+     .clk(clk), // input clk
+     .rst(~rst_n), // input rst
+     .din(hist_data_rd), // input [31 : 0] din
+     .wr_en(hist_buf_wr), // input wr_en
+     .rd_en(hist_buf_rd), // input rd_en
+     .dout(hist_buf_data), // output [31 : 0] dout
+     .full(hist_buf_full), // output full
+     .empty(hist_buf_empty), // output empty
+     .data_count(hist_buf_count) // output [4 : 0] data_count
+   );
 	
 endmodule

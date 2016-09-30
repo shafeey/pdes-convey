@@ -29,6 +29,8 @@ module core_monitor #(
       
       output [TIME_WID-1:0]   min_time,     // Smallest timestamp within active cores
       output                min_time_vld,
+      
+      output [4*NUM_CORE-1:0]          core_hist_cnt,
 
       input                 reset
    );
@@ -50,6 +52,13 @@ module core_monitor #(
    wire                  min_id_vld;
    wire   [NUM_CORE-1:0] match;
    wire   [NUM_CORE-1:0] match_rcv; // Match LP id in other cores when receiving events
+   
+   reg    [3:0] LP_hist_size[0:NUM_LP-1];
+   reg    [3:0] core_hist_size[0:NUM_CORE-1];
+   wire   [3:0] hist_size;
+   
+   genvar p;
+   for(p=0; p<NUM_CORE; p = p+1) assign core_hist_cnt[p*4 +: 4] = core_hist_size[p];
 
    assign LP_id = msg[TIME_WID +: NB_LP];
    assign event_time = msg[0 +: TIME_WID];
@@ -108,6 +117,29 @@ module core_monitor #(
       r_stall <= reset ? 0 : c_stall;
    end
    
+   
+   assign hist_size = msg[31:28];
+   always @(posedge clk or posedge reset) begin
+      if(reset) begin : reset_hist_size
+         integer i;
+         for(i=0; i<NUM_LP; i=i+1) LP_hist_size[i] <= 0;
+         for(i=0; i<NUM_CORE; i=i+1) core_hist_size[i] <= 0;
+      end 
+      else begin
+         if(sent_msg_vld) begin
+            core_hist_size[core_id] <= LP_hist_size[LP_id];
+         end
+         else 
+            if(rcv_msg_vld) begin 
+               LP_hist_size[core_LP_id[core_id]] <= hist_size;
+               if(min_id_vld) begin 
+                  core_hist_size[min_id] <= hist_size;
+               end
+            end
+      end
+   end
+   
+         
    /**
     * Find id of the core having minimum timestamp among cores with matching LP ID
     * Use binary reduction to find the smallest node

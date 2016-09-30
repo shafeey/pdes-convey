@@ -182,7 +182,42 @@ rrarb  mem_rrarb (	// Memory access arbiter
 	.vgnt   ( mem_vgnt ),
 	.eval   ( mem_req_vld ),
 	.egnt   ( mem_egnt )
-);
+   );
+
+wire [3:0] hist_req, hist_vgnt;
+wire [1:0] hist_egnt;
+wire hist_req_vld;
+
+rrarb  history_arbiter (   // Event history table arbiter
+   .clk    ( clk ),
+   .reset  ( ~rst_n ),
+   .req    ( hist_req ),
+   .stall  ( 0'b0 ),
+   .vgnt   ( hist_vgnt ),
+   .eval   ( hist_req_vld ),
+   .egnt   ( hist_egnt )
+   );
+
+wire [3:0]  hist_wr_en;
+wire [7:0]  hist_addr[3:0];
+wire [31:0] hist_data_wr[3:0];
+wire [31:0] hist_data_rd;
+
+wire [3:0]  hist_wea;
+wire [7:0]  hist_addra;
+wire [31:0] hist_dina;
+
+assign hist_wea = hist_wr_en[hist_egnt];
+assign hist_addra = hist_addr[hist_egnt];
+assign hist_dina = hist_data_wr[hist_egnt];
+
+bram_sp_32 event_history_table(
+      .clka (clk ), // input clka
+      .wea  (hist_wea && hist_req_vld), // input [0 : 0] wea
+      .addra(hist_addra), // input [7 : 0] addra
+      .dina (hist_dina), // input [31 : 0] dina
+      .douta(hist_data_rd)  // output [31 : 0] douta
+   );
 
 wire [7:0] random_in;
 wire [TIME_WID-1:0] event_time;
@@ -211,6 +246,7 @@ assign mc_rq_data = p_mc_rq_data[mem_egnt];
 assign mc_rq_flush = p_mc_rq_flush[mem_egnt];
 assign mc_rs_stall = p_mc_rs_stall[mem_egnt];
 
+wire [4*NUM_CORE-1:0] core_hist_cnt;
 // Phold Core instantiation
 genvar g;
 generate
@@ -238,6 +274,15 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	   .stall            ( stall[g] ),
 	   .ready            ( ready ),
 	   .ack              ( ack ),
+      
+	   .hist_addr        ( hist_addr[g]),
+	   .hist_data_rd     ( hist_data_rd ),
+	   .hist_data_wr     ( hist_data_wr[g] ),
+	   .hist_wr_en       ( hist_wr_en[g] ),
+      .hist_rq          ( hist_req[g] ),
+      .hist_access_grant( hist_vgnt[g] ),
+      .hist_size        ( core_hist_cnt[g*4 +: 4]),
+      
 	   .mc_rq_vld        ( p_mc_rq_vld[g] ),
 	   .mc_rq_cmd        ( p_mc_rq_cmd[g] ),
 	   .mc_rq_scmd       ( p_mc_rq_scmd[g] ),
@@ -258,7 +303,7 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	);
 	
 	assign event_valid = send_event_valid & send_vgnt[g];
-	assign new_event_data[g] = {new_event_target, new_event_time};
+	assign new_event_data[g] = {4'd4, {(MSG_WID-4-TIME_WID-3){1'b0}}, new_event_target, new_event_time};
 	assign rcv_vld[g] = new_event_ready;	
 	assign ack = rcv_vgnt[g];	
 	assign send_vld[g] = ready;
@@ -307,9 +352,9 @@ LFSR prng (
       .stall       (stall       ),
       .min_time    (min_time    ),
       .min_time_vld(min_time_vld),
+      .core_hist_cnt(core_hist_cnt),
       .reset       ( ~rst_n )
    );
-
 
 /*
  *	GVT calculation
