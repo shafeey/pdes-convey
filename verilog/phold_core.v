@@ -465,7 +465,9 @@ module phold_core
    wire hist_type;
    assign hist_type = hist_data_rd[`TW + NIDB]; // 1 = Cancellation Event, 0 = regular event
    wire [NIDB-1:0] hist_target;
-   assign hist_target = hist_data_rd[`TW +: NIDB];
+   assign hist_target = hist_data_rd[30:28]; // TODO: parameterize the range selection
+   wire [7:0] hist_offset;
+   assign hist_offset = hist_data_rd[27:20];
    reg c_cancel_match_found, r_cancel_match_found;
    reg c_gen_rollback;
    
@@ -475,7 +477,7 @@ module phold_core
       c_discard_cur_evt = r_discard_cur_evt;
       c_gen_rollback = 0;
       c_gen_cancel = r_gen_cancel;
-      if(r_state == READ_HIST && hist_size != 0) begin
+      if(r_state == READ_HIST && hist_size != 0 && hist_access_grant) begin
          if(hist_time < gvt) begin // History entry is expired, no chance of rollback
             c_discard_hist_entry = 1;
          end 
@@ -508,8 +510,8 @@ module phold_core
       r_cancel_match_found <= (r_state == IDLE) ? 0 : c_cancel_match_found;
       r_discard_cur_evt <= (r_state == IDLE) ? 0 : c_discard_cur_evt;
       cancel_evt_msg <= (r_state == IDLE) ? 0 :
-                              (c_gen_cancel ? 
-                                 { 12'b0, 1'b1, hist_target, hist_time } : cancel_evt_msg);
+                              (c_gen_cancel && ~r_gen_cancel ? 
+                                 { 12'b0, 1'b1, hist_target, hist_time + hist_offset } : cancel_evt_msg);
       r_gen_cancel <= (r_state == IDLE) ? 0 : c_gen_cancel;
    end 
    
