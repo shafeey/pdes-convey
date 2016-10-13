@@ -1,7 +1,7 @@
 module phold #(
 	parameter    NUM_MC_PORTS = 1,
 	parameter    MC_RTNCTL_WIDTH = 32, // Width of timestamps
-   parameter    SIM_END_TIME = 8000,  // Target GVT value when process returns
+   parameter    SIM_END_TIME = 16000,  // Target GVT value when process returns
    parameter    TIME_WID = 16
    )(
 	input clk,
@@ -128,7 +128,7 @@ wire  [MSG_WID-1:0] send_event_data;
 
 assign enq = (r_state == INIT) | 
 				((r_state == RUNNING) ? new_event_available : 1'b0) ;
-assign deq = (r_state == RUNNING) ? (~new_event_available & core_available) : 0;
+assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
 assign new_event = (r_state == INIT) ? {init_counter, {TIME_WID{1'b0}} }:
 						new_event_data[rcv_egnt];
 						
@@ -192,7 +192,7 @@ rrarb  history_arbiter (   // Event history table arbiter
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( hist_req ),
-   .stall  ( 0'b0 ),
+   .stall  ( 1'b0 ),
    .vgnt   ( hist_vgnt ),
    .eval   ( hist_req_vld ),
    .egnt   ( hist_egnt )
@@ -212,7 +212,7 @@ assign hist_addra = hist_addr[hist_egnt];
 assign hist_dina = hist_data_wr[hist_egnt];
 
 bram_sp_32 event_history_table(
-      .clka (clk ), // input clka
+      .clka (~clk ), // input clka
       .wea  (hist_wea && hist_req_vld), // input [0 : 0] wea
       .addra(hist_addra), // input [7 : 0] addra
       .dina (hist_dina), // input [31 : 0] dina
@@ -264,12 +264,10 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	   .rst_n            ( rst_n ),
 	   .core_id          ( g ),
 	   .event_valid      ( event_valid ),
-	   .event_id         ( event_id ),
-	   .event_time       ( event_time ),
+      .cur_event_msg    ( send_event_data ),
 	   .global_time      ( gvt ),
 	   .random_in        ( random_in ),
-	   .new_event_time   ( new_event_time ),
-	   .new_event_target ( new_event_target ),
+      .out_event_msg    ( new_event_data[g] ),
 	   .new_event_ready  ( new_event_ready ),
 	   .stall            ( stall[g] ),
 	   .ready            ( ready ),
@@ -303,18 +301,21 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	);
 	
 	assign event_valid = send_event_valid & send_vgnt[g];
-	assign new_event_data[g] = {4'd4, {(MSG_WID-4-TIME_WID-3){1'b0}}, new_event_target, new_event_time};
 	assign rcv_vld[g] = new_event_ready;	
 	assign ack = rcv_vgnt[g];	
 	assign send_vld[g] = ready;
 end
 endgenerate
 
+wire prio_q_enq;
+/* Prevent enqueue of null message(equivalent to {1'b1, 19'b0}) */
+assign prio_q_enq = enq && (new_event[0 +: 20] != {1'b1, 19'b0});
+
 // Event queue instantiation
 prio_q #(.CMP_WID(TIME_WID)) queue(
 	.clk(clk),
 	.rst_n(rst_n),
-	.enq(enq),
+	.enq(prio_q_enq),
 	.deq( deq ),
 	.inp_data(new_event),
 	.out_data(queue_out),
