@@ -24,7 +24,8 @@ module phold_core
 	// New generated event
 	output reg new_event_ready,
    output [31:0] out_event_msg,
-	
+   
+	output active,
    input stall,
 	output ready,
 	input ack,
@@ -117,7 +118,7 @@ module phold_core
 			gvt <= global_time;
 			rnd <= random_in;
 		end
-	end
+   end
 
    // States
 	localparam IDLE = 4'd0;
@@ -141,6 +142,8 @@ module phold_core
 	wire finished, read_hist_finished;
 	wire ld_rtn_vld, st_rtn_vld;
 	wire ld_rtn_vld2, st_rtn_vld2;
+   
+   assign active = (r_state != IDLE) && rst_n;
    
    reg [7:0] c_hist_addr;
    reg [31:0] c_hist_data_wr;

@@ -1,7 +1,7 @@
 module phold #(
 	parameter    NUM_MC_PORTS = 1,
 	parameter    MC_RTNCTL_WIDTH = 32, // Width of timestamps
-   parameter    SIM_END_TIME = 16000,  // Target GVT value when process returns
+   parameter    SIM_END_TIME = 1000,  // Target GVT value when process returns
    parameter    TIME_WID = 16
    )(
 	input clk,
@@ -100,7 +100,7 @@ end
  *  Initialization state.
  *  Used to insert the initial events to the queue.
  */
-reg [1:0] init_counter;
+reg [3:0] init_counter;
 always @(posedge clk or negedge rst_n) begin
 	if(!rst_n) begin
 		init_counter <= 0;
@@ -109,7 +109,7 @@ always @(posedge clk or negedge rst_n) begin
 		init_counter <= (r_state == INIT) ? (init_counter + 1) : 0;
 	end
 end
-assign init_complete = (init_counter == 2'd3);
+assign init_complete = (init_counter == 4'd7);
 
 
 /*
@@ -132,15 +132,6 @@ assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_av
 assign new_event = (r_state == INIT) ? {init_counter, {TIME_WID{1'b0}} }:
 						new_event_data[rcv_egnt];
 						
-
-// Debug displays						
-always @(posedge clk) begin
-	if (deq) $display("GVT: %d, \tEvent sent to CORE %d,\ttime: %d, LP: %d",
-						gvt, send_egnt, event_time, event_id);
-	if (enq) $display("GVT: %d, \t\t\t\t\t\tNew event from CORE %d,\ttime: %d, LP: %d",
-						gvt, rcv_egnt, new_event[TIME_WID-1:0], new_event[TIME_WID +: 3]);
-end
-
 
 /*
  *	Submodule instantiations
@@ -247,6 +238,7 @@ assign mc_rq_flush = p_mc_rq_flush[mem_egnt];
 assign mc_rs_stall = p_mc_rs_stall[mem_egnt];
 
 wire [4*NUM_CORE-1:0] core_hist_cnt;
+wire [NUM_CORE-1:0] core_active;
 // Phold Core instantiation
 genvar g;
 generate
@@ -269,6 +261,7 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	   .random_in        ( random_in ),
       .out_event_msg    ( new_event_data[g] ),
 	   .new_event_ready  ( new_event_ready ),
+      .active           ( core_active[g] ),
 	   .stall            ( stall[g] ),
 	   .ready            ( ready ),
 	   .ack              ( ack ),
@@ -350,6 +343,7 @@ LFSR prng (
       .sent_msg_vld(sent_msg_vld),
       .rcv_msg_vld (rcv_msg_vld ),
       .core_id     (core_id     ),
+      .core_active (core_active ),
       .stall       (stall       ),
       .min_time    (min_time    ),
       .min_time_vld(min_time_vld),
@@ -374,5 +368,41 @@ LFSR prng (
  assign c_gvt = (min_time_vld && !q_empty) ? 
                      (min_time < queue_out[0 +: TIME_WID] ? min_time : queue_out[0 +: TIME_WID]) :
                         (min_time_vld ? min_time : queue_out[0 +: TIME_WID]);
+ 
+ 
+ always @(posedge clk) begin : trace 
+    integer i;
+    
+    $write("GVT:%5d ",gvt);
+    for(i=0; i<NUM_CORE; i=i+1) begin
+       if(send_egnt == i && deq) begin
+          $write("|%1d->%-5d", send_event_data[TIME_WID +: 3], send_event_data[0 +: TIME_WID]);
+          if(send_event_data[19]) $write("# ");
+          else $write("> ");
+       end 
+       else $write("|          ");
+       
+       if(core_active[i]) begin
+          $write("%1d", u_core_monitor.core_LP_id[i]);
+          if(u_core_monitor.stall[i]) $write("*");
+          else $write(" ");
+       end 
+       else
+          $write("x ");
+       
+       if(rcv_egnt == i && enq)
+          if(new_event[19:0] == {1'b1, 19'b0}) $write(">>########|");
+          else begin
+             if(new_event[19]) $write("#");
+             else $write(" ");
+             $write(">%1d->%-5d|",new_event[TIME_WID +: 3], new_event[0+:TIME_WID]);
+          end 
+       else $write("          |");    
+    end
+    $write("Q:%2d",event_count);if(event_count >0) $write("[%5d]",queue_out[0+:TIME_WID]);
+    $write("\n");
+    
+    if(event_count > 25) $display("** Warning: Event count = %2d", event_count);
+ end 
  
 endmodule

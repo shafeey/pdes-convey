@@ -31,6 +31,7 @@ module core_monitor #(
       output                min_time_vld,
       
       output [4*NUM_CORE-1:0]          core_hist_cnt,
+      input [NUM_CORE-1:0] core_active,
 
       input                 reset
    );
@@ -40,7 +41,6 @@ module core_monitor #(
 
    reg    [TIME_WID-1:0] core_times [0:NUM_CORE-1];
    reg    [NB_LP-1:0]    core_LP_id [0:NUM_CORE-1];
-   reg                   core_active [0:NUM_CORE-1];
    
    reg    [NUM_CORE-1:0] r_stall;
    reg    [NUM_CORE-1:0] c_stall;
@@ -71,17 +71,12 @@ module core_monitor #(
          for(i = 0; i < NUM_CORE; i= i+1) begin
             core_times[i] = 0;
             core_LP_id[i] = 0;
-            core_active[i] = 0;
          end
       end
       else begin
          if(sent_msg_vld) begin
             core_times[core_id] <= event_time;
             core_LP_id[core_id] <= LP_id;
-            core_active[core_id] <= 1;
-         end
-         else if(rcv_msg_vld) begin
-            core_active[core_id] <= 0;
          end
       end
    end
