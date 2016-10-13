@@ -64,9 +64,9 @@ module phold_core
    reg [`TW-1:0] new_event_time;
 	reg [NIDB-1:0] new_event_target;
    
-	wire [NIDB-1:0] event_id = cur_event_msg[`TW +: NIDB];
-	wire [`TW-1:0] event_time = cur_event_msg[0 +: `TW];
-   wire cur_event_type = cur_event_msg[`TW + NIDB];
+	reg [NIDB-1:0] cur_lp_id;
+	reg [`TW-1:0] cur_event_time;
+   reg cur_event_type;
    
    reg          c_rq_vld;
    reg          r_rq_vld;
@@ -93,14 +93,13 @@ module phold_core
    reg          r_mc_rq_stall;
    
    	reg [NRB-1:0] rnd;
-	reg [`TW-1:0] local_time, gvt;
-	reg [NIDB-1:0] local_id;
+	reg [`TW-1:0] gvt;
    
    // MC interface
 	assign mc_rq_vld = r_rq_vld;
 	assign mc_rq_cmd = r_rq_cmd;
 	assign mc_rq_rtnctl ={ {(32-NCB-1){1'b0}},r_hold, core_id}; // NOTE: verify number of preceding zeros when making adjustment
-	assign mc_rq_data = {r_hold, 13'b0, core_id, 13'b0, local_id, 16'b0, event_time};
+	assign mc_rq_data = {r_hold, 13'b0, core_id, 13'b0, cur_lp_id, 16'b0, cur_event_time};
 	assign mc_rq_vadr = r_rq_vadr;
 	assign mc_rq_scmd = 4'h0;
 	assign mc_rq_size = MC_SIZE_QUAD;	// all requests are 8-byte
@@ -112,8 +111,9 @@ module phold_core
 	
 	always@(posedge clk) begin
 		if(event_valid) begin
-			local_time <= event_time;
-			local_id <= event_id;
+         cur_lp_id <= cur_event_msg[`TW +: NIDB];
+         cur_event_time <= cur_event_msg[0 +: `TW];
+         cur_event_type <= cur_event_msg[`TW + NIDB];
 			gvt <= global_time;
 			rnd <= random_in;
 		end
@@ -204,7 +204,7 @@ module phold_core
          end 
          else begin
    			c_hist_rq = 1'b1;
-            c_hist_addr = local_id * 16 + r_hist_cnt;
+            c_hist_addr = cur_lp_id * 16 + r_hist_cnt;
             c_hist_cnt = r_hist_cnt;
             if(hist_access_grant) begin
                c_hist_cnt = r_hist_cnt + 1;
@@ -220,12 +220,12 @@ module phold_core
       
 		LD_MEM: begin
 			if(~r_mc_rq_stall) begin
-            c_rq_vadr = addr + local_id * NUM_MEM_BYTE;
+            c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE;
 				c_rq_vld = 1'b1;
 				c_rq_cmd = AEMC_CMD_RD8;
 			end
 			if(mem_gnt) begin
-            c_rq_vadr = addr + local_id * NUM_MEM_BYTE + 8;
+            c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE + 8;
             c_hold = 1;
             if(r_hold) begin
                c_state = LD_RTN;
@@ -261,7 +261,7 @@ module phold_core
          else begin
             c_hist_rq = 1;
             c_hist_wr = 1;
-            c_hist_addr = local_id * 16 + r_hist_cnt;
+            c_hist_addr = cur_lp_id * 16 + r_hist_cnt;
             c_hist_data_wr = hist_buf_data;
             c_hist_cnt = r_hist_cnt;
             if(hist_access_grant) begin
@@ -278,12 +278,12 @@ module phold_core
       
 		ST_MEM: begin
 			if(~r_mc_rq_stall) begin
-            c_rq_vadr = addr + local_id * NUM_MEM_BYTE;
+            c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE;
 				c_rq_vld = 1'b1;
 				c_rq_cmd = AEMC_CMD_WR8;
 			end
 			if(mem_gnt) begin
-            c_rq_vadr = addr + local_id * NUM_MEM_BYTE + 8;
+            c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE + 8;
             c_hold = 1;
             if(r_hold) begin
    				c_state = ST_RTN;
@@ -401,7 +401,7 @@ module phold_core
 						(r_state == WRITE_HIST ? counter + 1 : 3'b0) : 3'b0; 
 		
 		new_event_ready <= rst_n ? c_event_ready : 0;
-		new_event_time <= local_time + 10 + rnd [4:0]; // Keep at least 10 units time gap between events
+		new_event_time <= cur_event_time + 10 + rnd [4:0]; // Keep at least 10 units time gap between events
 		new_event_target <= rnd[NRB-1:5];
 		r_rq_vld <= rst_n ? c_rq_vld : 0;
 		r_rq_cmd <= c_rq_cmd;
@@ -418,8 +418,8 @@ module phold_core
       r_hist_rq <= rst_n ? c_hist_rq : 0;
       r_hist_wr <= rst_n ? c_hist_wr : 0;
       
-      if(r_state == WRITE_HIST && hist_rq) $display("Writing: core %h, address %h, data %h", core_id, hist_addr, hist_data_wr);
-      if(r_state == READ_HIST && hist_rq) $display("Reading: core %h, address %h, data %h", core_id, hist_addr, hist_data_rd);
+//      if(r_state == WRITE_HIST && hist_rq) $display("Writing: core %h, address %h, data %h", core_id, hist_addr, hist_data_wr);
+//      if(r_state == READ_HIST && hist_rq) $display("Reading: core %h, address %h, data %h", core_id, hist_addr, hist_data_rd);
       
    end
    assign hist_data_wr = c_hist_data_wr;
@@ -430,12 +430,12 @@ module phold_core
    wire [`TW-1:0] new_event_time_offest;
    wire [31:0] hist_buf_din;
    
-   assign new_event_time_offest = new_event_time - event_time;
+   assign new_event_time_offest = new_event_time - cur_event_time;
    
    assign hist_buf_wr_en = (~hist_wr_en && hist_rq && hist_access_grant && ~c_discard_hist_entry) ||
                               c_gen_next_evt;
    assign hist_buf_din = c_gen_next_evt ? 
-                                 {new_event_target , new_event_time_offest[7:0] ,cur_event_type, event_id, event_time}
+                                 {new_event_target , new_event_time_offest[7:0] ,cur_event_type, cur_lp_id, cur_event_time}
                                  : hist_data_rd;
    assign hist_buf_rd_en = r_hist_wr;
    
@@ -443,7 +443,7 @@ module phold_core
       .width(32),
       .DEPTH(16)
    ) hist_buffer (
-      .rst       (~rst_n             ),
+      .rst       (~rst_n || r_state == IDLE ),
       .clk       (clk                ),
       .rd_en     (hist_buf_rd_en     ),
       .dout      (hist_buf_data      ),
@@ -460,9 +460,9 @@ module phold_core
    wire [`TW-1:0] hist_time; 
    assign hist_time = hist_data_rd[0 +: `TW];
    wire hist_type;
-   assign hist_type = hist_data_rd[`TW]; // 1 = Cancellation Event, 0 = regular event
+   assign hist_type = hist_data_rd[`TW + NIDB]; // 1 = Cancellation Event, 0 = regular event
    wire [NIDB-1:0] hist_target;
-   assign hist_target = hist_data_rd[(`TW+1) +: NIDB];
+   assign hist_target = hist_data_rd[`TW +: NIDB];
    reg c_cancel_match_found, r_cancel_match_found;
    reg c_gen_rollback;
    
@@ -476,7 +476,7 @@ module phold_core
          if(hist_time < gvt) begin // History entry is expired, no chance of rollback
             c_discard_hist_entry = 1;
          end 
-         else if(hist_type != cur_event_type  && hist_time == event_time && !r_cancel_match_found) begin
+         else if(hist_type != cur_event_type  && hist_time == cur_event_time && !r_cancel_match_found) begin
             /* Event in stack and the current event are cancellation for each other */
             /* Don't put back the entry to history again.
              * Set a flag to indicate the match is found, to prevent cancellation twice.
@@ -490,7 +490,7 @@ module phold_core
                c_gen_cancel = 1;
             end 
          end 
-         else if(cur_event_type == REGULAR_EVT && hist_type == REGULAR_EVT && hist_time > event_time) begin
+         else if(cur_event_type == REGULAR_EVT && hist_type == REGULAR_EVT && hist_time > cur_event_time) begin
             /* Current event is a regular event, and has earlier timestamp than an already
              * processed regular event in the history, so the history entry has to be rolled back
              */
@@ -519,7 +519,7 @@ module phold_core
       .width(32),
       .DEPTH(16)
    ) out_buffer (
-      .rst       (~rst_n            ),
+      .rst       (~rst_n || r_state == IDLE ),
       .clk       (clk               ),
       .rd_en     (c_out_buf_rd_en     ),
       .dout      (out_buf_dout      ),
