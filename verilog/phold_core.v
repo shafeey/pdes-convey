@@ -416,15 +416,15 @@ module phold_core
       rtn_data[127:64] <= rst_n ? (ld_rtn_vld2 ? r_rs_data : rtn_data[127:64]) : 0;
 	end
 	
-   always @(posedge clk or negedge rst_n) begin 
+   always @(posedge clk) begin 
       r_hist_cnt <= rst_n ? c_hist_cnt : 0;
       r_hist_rq <= rst_n ? c_hist_rq : 0;
       r_hist_wr <= rst_n ? c_hist_wr : 0;
       
 //      if(r_state == WRITE_HIST && hist_rq) $display("Writing: core %h, address %h, data %h", core_id, hist_addr, hist_data_wr);
-//      if(r_state == READ_HIST && hist_rq) $display("Reading: core %h, address %h, data %h", core_id, hist_addr, hist_data_rd);
-      
+//      if(r_state == READ_HIST && hist_rq) $display("Reading: core %h, address %h, data %h", core_id, hist_addr, hist_data_rd);      
    end
+
    assign hist_data_wr = c_hist_data_wr;
       assign hist_addr = c_hist_addr;
    assign hist_wr_en = r_hist_wr;

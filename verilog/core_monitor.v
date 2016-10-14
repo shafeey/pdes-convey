@@ -58,7 +58,9 @@ module core_monitor #(
    wire   [3:0] hist_size;
    
    genvar p;
-   for(p=0; p<NUM_CORE; p = p+1) assign core_hist_cnt[p*4 +: 4] = core_hist_size[p];
+   for(p=0; p<NUM_CORE; p = p+1) begin : expand_bus
+       assign core_hist_cnt[p*4 +: 4] = core_hist_size[p];
+   end
 
    assign LP_id = msg[TIME_WID +: NB_LP];
    assign event_time = msg[0 +: TIME_WID];
@@ -69,8 +71,8 @@ module core_monitor #(
       if(reset) begin : reset_table
          integer i;
          for(i = 0; i < NUM_CORE; i= i+1) begin
-            core_times[i] = 0;
-            core_LP_id[i] = 0;
+            core_times[i] <= 0;
+            core_LP_id[i] <= 0;
          end
       end
       else begin
@@ -102,10 +104,10 @@ module core_monitor #(
    always @* begin
       c_stall = r_stall;
       if(sent_msg_vld && (|match)) // same LP exists in another core, stall
-         c_stall[core_id] <= 1;
+         c_stall[core_id] = 1;
       else if(rcv_msg_vld && min_id_vld) 
          // Reset stall for core with smallest timestamp (if any)
-         c_stall[min_id] <= 0;
+         c_stall[min_id] = 0;
    end
                         
    always @(posedge clk) begin

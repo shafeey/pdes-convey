@@ -68,7 +68,7 @@ module fwft_fifo( rst, clk,
 
 
 
-   memory fifo_mem(
+   dist_memory fifo_mem(
      .a(head), // input [3 : 0] a
      .d(din), // input [31 : 0] d
      .dpra(tail), // input [3 : 0] dpra
@@ -79,7 +79,7 @@ module fwft_fifo( rst, clk,
    
 endmodule
 
-module memory(
+module dist_memory(
   a,
   d,
   dpra,
@@ -101,7 +101,7 @@ output [31 : 0] dpo;
     .C_ADDR_WIDTH(4),
     .C_DEFAULT_DATA("0"),
     .C_DEPTH(16),
-    .C_FAMILY("artix7"),
+    .C_FAMILY("virtex6"),
     .C_HAS_CLK(1),
     .C_HAS_D(1),
     .C_HAS_DPO(1),

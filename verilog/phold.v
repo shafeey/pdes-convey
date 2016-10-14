@@ -1,7 +1,7 @@
 module phold #(
 	parameter    NUM_MC_PORTS = 1,
 	parameter    MC_RTNCTL_WIDTH = 32, // Width of timestamps
-   parameter    SIM_END_TIME = 1000,  // Target GVT value when process returns
+   parameter    SIM_END_TIME = 16000,  // Target GVT value when process returns
    parameter    TIME_WID = 16
    )(
 	input clk,
@@ -370,6 +370,7 @@ LFSR prng (
                         (min_time_vld ? min_time : queue_out[0 +: TIME_WID]);
  
  
+`ifdef TRACE
  always @(posedge clk) begin : trace 
     integer i;
     
@@ -404,5 +405,6 @@ LFSR prng (
     
     if(event_count > 25) $display("** Warning: Event count = %2d", event_count);
  end 
+`endif
  
 endmodule
