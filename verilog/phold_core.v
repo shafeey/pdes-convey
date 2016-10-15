@@ -311,7 +311,7 @@ module phold_core
                   c_out_event_msg = null_msg;
             end
             else begin
-               if(cur_event_type == CANCELLATION_EVT && hist_size == 0)
+               if(cur_event_type == CANCELLATION_EVT)
                   c_out_event_msg = null_msg;
                else
                   c_out_event_msg = new_event_msg;

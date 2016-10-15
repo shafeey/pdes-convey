@@ -401,6 +401,7 @@ LFSR prng (
        else $write("          |");    
     end
     $write("Q:%2d",event_count);if(event_count >0) $write("[%5d]",queue_out[0+:TIME_WID]);
+    if(enq) $write("~H:%2d", new_event[31:28]);
     $write("\n");
     
     if(event_count > 25) $display("** Warning: Event count = %2d", event_count);
