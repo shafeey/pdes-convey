@@ -2,28 +2,33 @@
 
 module phold_core
 	#(
-	parameter NIDB = 3, // Number of bits in ID. Number of Available LP < 2 ^ NIDB
-	parameter NRB = 8,	// Number of bits in Random number generator
-	parameter NCB = 2,	//  Number of bits in core id;
+	parameter NB_LPID = 3, // Number of bits in ID. Number of Available LP < 2 ^ NB_LP
+	parameter NB_RND = 8,	// Number of bits in Random number generator
+	parameter NB_COREID = 2,	//  Number of bits in core id;
    parameter NUM_MEM_BYTE = 16,
+   parameter MSG_WID = 32,
+   parameter TIME_WID = 16,
+   parameter HIST_WID = 32,
+   parameter NB_HIST_ADDR = 8,
+   parameter NB_HIST_DEPTH = 4,
 	parameter    MC_RTNCTL_WIDTH = 32
 	)(
 	input clk,
 	input rst_n,
-	input [NCB-1:0] core_id,
+	input [NB_COREID-1:0] core_id,
 	
 	// Incoming events
 	input event_valid,
-   input [31:0] cur_event_msg,
+   input [MSG_WID-1:0] cur_event_msg,
 	
-	input [`TW-1:0] global_time,
+	input [TIME_WID-1:0] global_time,
 	
 	// Receive a random number
-	input [NRB-1:0] random_in,
+	input [NB_RND-1:0] random_in,
 	
 	// New generated event
 	output reg new_event_ready,
-   output [31:0] out_event_msg,
+   output [MSG_WID-1:0] out_event_msg,
    
 	output active,
    input stall,
@@ -31,13 +36,13 @@ module phold_core
 	input ack,
    
    // Event History Interface
-   output            hist_rq,
-   output            hist_wr_en,
-   output [7:0]    hist_addr,
-   output [31:0]   hist_data_wr,
-   input       [31:0]   hist_data_rd,
+   output          hist_rq,
+   output          hist_wr_en,
+   output [NB_HIST_ADDR-1:0]    hist_addr,
+   output [HIST_WID-1:0]   hist_data_wr,
+   input       [HIST_WID-1:0]   hist_data_rd,
    input                hist_access_grant,
-   input [3:0]       hist_size,
+   input [NB_HIST_DEPTH-1:0]       hist_size,
 	
 	// Memory interface
 	output		mc_rq_vld,
@@ -62,11 +67,11 @@ module phold_core
 );
 	`include "aemc_messages.vh"
    
-   reg [`TW-1:0] new_event_time;
-	reg [NIDB-1:0] new_event_target;
+   reg [TIME_WID-1:0] new_event_time;
+	reg [NB_LPID-1:0] new_event_target;
    
-	reg [NIDB-1:0] cur_lp_id;
-	reg [`TW-1:0] cur_event_time;
+	reg [NB_LPID-1:0] cur_lp_id;
+	reg [TIME_WID-1:0] cur_event_time;
    reg cur_event_type;
    
    reg          c_rq_vld;
@@ -93,14 +98,14 @@ module phold_core
 
    reg          r_mc_rq_stall;
    
-   	reg [NRB-1:0] rnd;
-	reg [`TW-1:0] gvt;
+   	reg [NB_RND-1:0] rnd;
+	reg [TIME_WID-1:0] gvt;
    
    // MC interface
 	assign mc_rq_vld = r_rq_vld;
 	assign mc_rq_cmd = r_rq_cmd;
-	assign mc_rq_rtnctl ={ {(32-NCB-1){1'b0}},r_hold, core_id}; // NOTE: verify number of preceding zeros when making adjustment
-	assign mc_rq_data = {r_hold, 13'b0, core_id, 13'b0, cur_lp_id, 16'b0, cur_event_time};
+	assign mc_rq_rtnctl ={ {(32-NB_COREID-1){1'b0}},r_hold, core_id}; // NOTE: verify number of preceding zeros when making adjustment
+	assign mc_rq_data = {r_hold, 13'b0, core_id, 13'b0, cur_lp_id, 16'b0, cur_event_time}; // A test data pattern, of no significance
 	assign mc_rq_vadr = r_rq_vadr;
 	assign mc_rq_scmd = 4'h0;
 	assign mc_rq_size = MC_SIZE_QUAD;	// all requests are 8-byte
@@ -112,9 +117,9 @@ module phold_core
 	
 	always@(posedge clk) begin
 		if(event_valid) begin
-         cur_lp_id <= cur_event_msg[`TW +: NIDB];
-         cur_event_time <= cur_event_msg[0 +: `TW];
-         cur_event_type <= cur_event_msg[`TW + NIDB];
+         cur_lp_id <= cur_event_msg[TIME_WID +: NB_LPID];
+         cur_event_time <= cur_event_msg[0 +: TIME_WID];
+         cur_event_type <= cur_event_msg[TIME_WID + NB_LPID];
 			gvt <= global_time;
 			rnd <= random_in;
 		end
@@ -132,10 +137,12 @@ module phold_core
 	localparam ST_RTN = 4'd8;
 	localparam WAIT = 4'd9;
             
-   localparam CANCELLATION_EVT = 1;
-   localparam REGULAR_EVT = 0;
+   localparam EVT_TYPE_WID = 1;
+   localparam CANCEL_EVT = {EVT_TYPE_WID{1'b1}};
+   localparam REGULAR_EVT = {EVT_TYPE_WID{1'b0}};
             
-   wire [31:0] new_event_msg = {12'b0, 1'b0, new_event_target, new_event_time};
+   wire [MSG_WID-1:0] new_event_msg;
+   assign new_event_msg = { {MSG_WID-NB_LPID-TIME_WID-EVT_TYPE_WID{1'b0}}, REGULAR_EVT, new_event_target, new_event_time};
 				
 	reg [3:0] c_state, r_state;
 	reg c_event_ready, r_event_ready;
@@ -145,31 +152,31 @@ module phold_core
    
    assign active = (r_state != IDLE) && rst_n;
    
-   reg [7:0] c_hist_addr;
-   reg [31:0] c_hist_data_wr;
+   reg [NB_HIST_ADDR-1:0] c_hist_addr;
+   reg [HIST_WID-1:0] c_hist_data_wr;
    
-   wire [31:0] out_buf_dout, out_buf_din;
-   reg [31:0] cancel_evt_msg;
+   wire [HIST_WID-1:0] out_buf_dout, out_buf_din;
+   reg [MSG_WID-1:0] cancel_evt_msg;
    reg c_gen_cancel, r_gen_cancel;
    reg c_discard_hist_entry, c_discard_cur_evt, r_discard_cur_evt;
    wire hist_buf_rd_en, hist_buf_wr_en;
-   wire [31:0] hist_buf_data;
+   wire [HIST_WID-1:0] hist_buf_data;
    wire hist_buf_full, hist_buf_empty;
-   wire [3:0] hist_buf_cnt;
+   wire [NB_HIST_DEPTH-1:0] hist_buf_cnt;
    
-   reg [3:0] hist_buf_ret_size;
+   reg [NB_HIST_DEPTH-1:0] hist_buf_ret_size;
    
-   reg [3:0] c_hist_cnt, r_hist_cnt;
+   reg [NB_HIST_DEPTH-1:0] c_hist_cnt, r_hist_cnt;
    reg c_hist_rq, r_hist_rq;
    reg c_hist_wr, r_hist_wr;
    reg c_hist_filt_done, r_hist_filt_done;
    reg c_gen_next_evt;
    
-	reg [31:0] c_out_event_msg;
-   reg[31:0] r_out_event_msg;
+	reg [MSG_WID-1:0] c_out_event_msg;
+   reg[MSG_WID-1:0] r_out_event_msg;
 	reg c_rollback_msg_type, r_rollback_msg_type;
    reg c_out_buf_rd_en;
-   wire [31:0] rollback_cncl_msg, rollback_evt_msg, null_msg;
+   wire [MSG_WID-1:0] rbk_cncl_msg, rbk_evt_msg, null_msg;
    wire out_buf_empty;
 	always@* begin
 		c_state = r_state;
@@ -207,7 +214,7 @@ module phold_core
          end 
          else begin
    			c_hist_rq = 1'b1;
-            c_hist_addr = cur_lp_id * 16 + r_hist_cnt;
+            c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
             c_hist_cnt = r_hist_cnt;
             if(hist_access_grant) begin
                c_hist_cnt = r_hist_cnt + 1;
@@ -264,7 +271,7 @@ module phold_core
          else begin
             c_hist_rq = 1;
             c_hist_wr = 1;
-            c_hist_addr = cur_lp_id * 16 + r_hist_cnt;
+            c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
             c_hist_data_wr = hist_buf_data;
             c_hist_cnt = r_hist_cnt;
             if(hist_access_grant) begin
@@ -311,7 +318,7 @@ module phold_core
                   c_out_event_msg = null_msg;
             end
             else begin
-               if(cur_event_type == CANCELLATION_EVT)
+               if(cur_event_type == CANCEL_EVT)
                   c_out_event_msg = null_msg;
                else
                   c_out_event_msg = new_event_msg;
@@ -332,11 +339,11 @@ module phold_core
                // Need a rollback event and a cancellation message
                   if(r_rollback_msg_type == 0) begin
                      c_rollback_msg_type = 1;
-                     c_out_event_msg = rollback_cncl_msg;
+                     c_out_event_msg = rbk_cncl_msg;
                   end
                   else begin
                      c_rollback_msg_type = 0;
-                     c_out_event_msg = rollback_evt_msg;
+                     c_out_event_msg = rbk_evt_msg;
                      c_out_buf_rd_en = 1;
                   end 
             end
@@ -358,30 +365,38 @@ module phold_core
       end 
    end
    
-   assign out_event_msg = r_out_event_msg | {hist_buf_ret_size, 28'b0};
+   // Superimpose the buffer size on message, to be read by core monitor  
+   assign out_event_msg = r_out_event_msg | {hist_buf_ret_size, {MSG_WID-NB_HIST_DEPTH{1'b0}} };
    
-   wire [`TW-1:0] rollback_entry_time;
-   wire [NIDB-1:0] rollback_entry_target, rollback_entry_lp;
-   wire [7:0] rollback_entry_offset;
+   // Rollback entry information
+   localparam RBK_OFFSET_WID =8;
+   localparam RBK_TYPE_WID = 1;
    
-   assign rollback_entry_time = out_buf_dout[0 +: `TW];
-   assign rollback_entry_lp = out_buf_dout[`TW +: NIDB];
-   assign rollback_entry_target = out_buf_dout[30:28];
-   assign rollback_entry_offset = out_buf_dout[27:20];
+   wire [TIME_WID-1:0] rbk_time;
+   wire [NB_LPID-1:0] rbk_target, rbk_lp;
+   wire [RBK_OFFSET_WID-1:0] rbk_offset;
+   wire [RBK_TYPE_WID-1:0] rbk_type;
+
+   assign rbk_time   = out_buf_dout[0 +: TIME_WID];
+   assign rbk_lp     = out_buf_dout[TIME_WID +: NB_LPID];
+   assign rbk_type   = out_buf_dout[(TIME_WID + NB_LPID) +: RBK_TYPE_WID];
+   assign rbk_offset = out_buf_dout[(TIME_WID + NB_LPID + RBK_TYPE_WID) +: RBK_OFFSET_WID];
+   assign rbk_target = out_buf_dout[(TIME_WID + NB_LPID + RBK_TYPE_WID + RBK_OFFSET_WID) +: NB_LPID];
+
+   assign null_msg      = { {MSG_WID-EVT_TYPE_WID-NB_LPID-TIME_WID{1'b0}}, CANCEL_EVT, {NB_LPID + TIME_WID{1'b0}} };
+   assign rbk_evt_msg   = { {MSG_WID-EVT_TYPE_WID-NB_LPID-TIME_WID{1'b0}}, REGULAR_EVT, rbk_lp, rbk_time};
+   assign rbk_cncl_msg  = { {MSG_WID-EVT_TYPE_WID-NB_LPID-TIME_WID{1'b0}}, CANCEL_EVT, rbk_target, (rbk_time + rbk_offset)}; 
    
-   assign null_msg = {12'b0, 1'b1, {NIDB{1'b0}}, `TW'b0};
-   assign rollback_evt_msg = {12'b0, 1'b0, rollback_entry_lp, rollback_entry_time};
-   assign rollback_cncl_msg = {12'b0, 1'b1, rollback_entry_target, (rollback_entry_time + rollback_entry_offset)}; 
 	assign ready = (r_state == IDLE);
 	assign ld_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_RD8_DATA) &&
-							(r_rs_rtnctl[NCB:0] == { 1'b0, core_id});
+							(r_rs_rtnctl[NB_COREID:0] == { 1'b0, core_id});
 	assign st_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_WR_CMP) &&
-							(r_rs_rtnctl[NCB:0] == { 1'b0, core_id});
+							(r_rs_rtnctl[NB_COREID:0] == { 1'b0, core_id});
 							
 	assign ld_rtn_vld2 = r_rs_vld && (r_rs_cmd == MCAE_CMD_RD8_DATA) &&
-							(r_rs_rtnctl[NCB:0] == { 1'b1, core_id});
+							(r_rs_rtnctl[NB_COREID:0] == { 1'b1, core_id});
 	assign st_rtn_vld2 = r_rs_vld && (r_rs_cmd == MCAE_CMD_WR_CMP) &&
-							(r_rs_rtnctl[NCB:0] == { 1'b1, core_id});
+							(r_rs_rtnctl[NB_COREID:0] == { 1'b1, core_id});
 	
 							
 	always @(posedge clk) begin
@@ -405,7 +420,7 @@ module phold_core
 		
 		new_event_ready <= rst_n ? c_event_ready : 0;
 		new_event_time <= cur_event_time + 10 + rnd [4:0]; // Keep at least 10 units time gap between events
-		new_event_target <= rnd[NRB-1:5];
+		new_event_target <= rnd[NB_RND-1:5];
 		r_rq_vld <= rst_n ? c_rq_vld : 0;
 		r_rq_cmd <= c_rq_cmd;
       r_rq_vadr <= c_rq_vadr;
@@ -430,7 +445,7 @@ module phold_core
    assign hist_wr_en = r_hist_wr;
    assign hist_rq = r_hist_rq;
    
-   wire [`TW-1:0] new_event_time_offest;
+   wire [TIME_WID-1:0] new_event_time_offest;
    wire [31:0] hist_buf_din;
    
    assign new_event_time_offest = new_event_time - cur_event_time;
@@ -460,11 +475,11 @@ module phold_core
    /*
     * Event history filter
     */
-   wire [`TW-1:0] hist_time; 
-   assign hist_time = hist_data_rd[0 +: `TW];
+   wire [TIME_WID-1:0] hist_time; 
+   assign hist_time = hist_data_rd[0 +: TIME_WID];
    wire hist_type;
-   assign hist_type = hist_data_rd[`TW + NIDB]; // 1 = Cancellation Event, 0 = regular event
-   wire [NIDB-1:0] hist_target;
+   assign hist_type = hist_data_rd[TIME_WID + NB_LPID +: RBK_TYPE_WID]; // 1 = Cancellation Event, 0 = regular event
+   wire [NB_LPID-1:0] hist_target;
    assign hist_target = hist_data_rd[30:28]; // TODO: parameterize the range selection
    wire [7:0] hist_offset;
    assign hist_offset = hist_data_rd[27:20];
@@ -490,7 +505,7 @@ module phold_core
             c_discard_hist_entry = 1;
             c_cancel_match_found = 1;
             c_discard_cur_evt = 1;
-            if(cur_event_type == CANCELLATION_EVT) begin 
+            if(cur_event_type == CANCEL_EVT) begin 
                /* This event has already made changes that need to be rolled back */
                c_gen_cancel = 1;
             end 

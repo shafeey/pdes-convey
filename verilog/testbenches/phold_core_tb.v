@@ -153,9 +153,9 @@ end
 // Instance Declarations
 phold_core
  #(
-   .NIDB            ( NIDB ),
-   .NRB             ( NRB ),
-   .NCB             ( NCB ),
+   .NB_LPID            ( NIDB ),
+   .NB_RND             ( NRB ),
+   .NB_COREID             ( NCB ),
    .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH )
 )  inst_phold_core
  (

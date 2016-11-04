@@ -145,7 +145,7 @@ assign send_event_valid = deq;
 assign next_rnd = deq || (r_state == INIT);
 
 // Round robin arbiter
-rrarb  rcv_rrarb (	// Receive new events from the cores
+arbiter  rcv_rrarb (	// Receive new events from the cores
 	.clk    ( clk ),
 	.reset  ( ~rst_n ),
 	.req    ( rcv_vld ),
@@ -165,7 +165,7 @@ rrarb  send_rrarb (	// Dispatch new events to the cores
 	.egnt   ( send_egnt )
 );
 
-rrarb  mem_rrarb (	// Memory access arbiter
+arbiter  mem_rrarb (	// Memory access arbiter
 	.clk    ( clk ),
 	.reset  ( ~rst_n ),
 	.req    ( mem_req ),
@@ -179,7 +179,7 @@ wire [3:0] hist_req, hist_vgnt;
 wire [1:0] hist_egnt;
 wire hist_req_vld;
 
-rrarb  history_arbiter (   // Event history table arbiter
+arbiter  history_arbiter (   // Event history table arbiter
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( hist_req ),
