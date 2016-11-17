@@ -16,7 +16,9 @@
  */
 module core_monitor #(
       parameter NUM_CORE = 4,
+      parameter NB_COREID = $clog2(NUM_CORE),
       parameter NUM_LP = 8,
+      parameter NB_LPID =   $clog2(NUM_LP),
       parameter TIME_WID = 16,
       parameter MSG_WID = 32,
       parameter NB_HIST_DEPTH = 4
@@ -37,19 +39,17 @@ module core_monitor #(
       input                 reset
    );
 
-   parameter NB_CORE = $clog2(NUM_CORE);
-   parameter NB_LP =   $clog2(NUM_LP);
 
    reg    [TIME_WID-1:0] core_times [0:NUM_CORE-1];
-   reg    [NB_LP-1:0]    core_LP_id [0:NUM_CORE-1];
+   reg    [NB_LPID-1:0]    core_LP_id [0:NUM_CORE-1];
    
    reg    [NUM_CORE-1:0] r_stall;
    reg    [NUM_CORE-1:0] c_stall;
 
    wire   [TIME_WID-1:0] event_time;
 
-   wire   [NB_LP-1:0]    LP_id;
-   wire   [NB_CORE-1:0]  min_id;
+   wire   [NB_LPID-1:0]    LP_id;
+   wire   [NB_COREID-1:0]  min_id;
    wire                  min_id_vld;
    wire   [NUM_CORE-1:0] match;
    wire   [NUM_CORE-1:0] match_rcv; // Match LP id in other cores when receiving events
@@ -63,7 +63,7 @@ module core_monitor #(
        assign core_hist_cnt[p*NB_HIST_DEPTH +: NB_HIST_DEPTH] = core_hist_size[p];
    end
 
-   assign LP_id = msg[TIME_WID +: NB_LP];
+   assign LP_id = msg[TIME_WID +: NB_LPID];
    assign event_time = msg[0 +: TIME_WID];
    
    assign stall = r_stall | c_stall;
@@ -144,10 +144,10 @@ module core_monitor #(
     */
    generate
       genvar i, j;
-      for (j = 0; j < NB_CORE; j = j + 1) begin : m_id
+      for (j = 0; j < NB_COREID; j = j + 1) begin : m_id
          for(i = 0; i < 2**j; i = i+1) begin : cmp
             wire [TIME_WID-1:0]  left, right, min;
-            wire [NB_CORE-1:0]   left_idx, right_idx, min_idx;
+            wire [NB_COREID-1:0]   left_idx, right_idx, min_idx;
             wire                 l_vld, r_vld, min_vld;
 
             assign min = (l_vld && r_vld) ?
@@ -158,7 +158,7 @@ module core_monitor #(
                               (l_vld ? left_idx : right_idx);
             assign min_vld = (l_vld || r_vld);
 
-            if(j+1 == NB_CORE) begin
+            if(j+1 == NB_COREID) begin
                /* Top level, assign from input signals */
                assign l_vld = match_rcv[i*2];
                assign left = core_times[i*2];
@@ -188,7 +188,7 @@ module core_monitor #(
     */
     generate
       genvar g, h;
-      for (h = 0; h < NB_CORE; h = h + 1) begin : m_time
+      for (h = 0; h < NB_COREID; h = h + 1) begin : m_time
          for(g = 0; g < 2**h; g = g+1) begin : cmp
             wire [TIME_WID-1:0]  left, right, min;
             wire                 l_vld, r_vld, min_vld;
@@ -198,7 +198,7 @@ module core_monitor #(
                               (l_vld ? left : right);
             assign min_vld = (l_vld || r_vld);
 
-            if(h+1 == NB_CORE) begin
+            if(h+1 == NB_COREID) begin
                /* Top level, assign from input signals */
                assign l_vld = core_active[g*2];
                assign left = core_times[g*2];

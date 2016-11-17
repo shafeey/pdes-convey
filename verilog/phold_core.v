@@ -377,10 +377,10 @@ module phold_core
    wire [RBK_TYPE_WID-1:0] rbk_type;
 
    assign rbk_time   = out_buf_dout[0 +: TIME_WID];
-   assign rbk_lp     = out_buf_dout[TIME_WID +: NB_LPID];
-   assign rbk_type   = out_buf_dout[(TIME_WID + NB_LPID) +: RBK_TYPE_WID];
-   assign rbk_offset = out_buf_dout[(TIME_WID + NB_LPID + RBK_TYPE_WID) +: RBK_OFFSET_WID];
-   assign rbk_target = out_buf_dout[(TIME_WID + NB_LPID + RBK_TYPE_WID + RBK_OFFSET_WID) +: NB_LPID];
+   assign rbk_lp     = cur_lp_id;
+   assign rbk_type   = out_buf_dout[(TIME_WID) +: RBK_TYPE_WID];
+   assign rbk_offset = out_buf_dout[(TIME_WID + RBK_TYPE_WID) +: RBK_OFFSET_WID];
+   assign rbk_target = out_buf_dout[(TIME_WID + RBK_TYPE_WID + RBK_OFFSET_WID) +: NB_LPID];
 
    assign null_msg      = { {MSG_WID-EVT_TYPE_WID-NB_LPID-TIME_WID{1'b0}}, CANCEL_EVT, {NB_LPID + TIME_WID{1'b0}} };
    assign rbk_evt_msg   = { {MSG_WID-EVT_TYPE_WID-NB_LPID-TIME_WID{1'b0}}, REGULAR_EVT, rbk_lp, rbk_time};
@@ -419,8 +419,8 @@ module phold_core
 		
 		new_event_ready <= rst_n ? c_event_ready : 0;
 		new_event_time <= cur_event_time + 10 + rnd [4:0]; // Keep at least 10 units time gap between events
-		new_event_target <= rnd[NB_RND-1:5];
-		r_rq_vld <= rst_n ? c_rq_vld : 0;
+		new_event_target <= rnd[NB_RND-NB_LPID +: NB_LPID]; 
+		r_rq_vld <= rst_n ? c_rq_vld : 0; 
 		r_rq_cmd <= c_rq_cmd;
       r_rq_vadr <= c_rq_vadr;
       r_hold <= rst_n ? c_hold : 0;
@@ -452,7 +452,7 @@ module phold_core
    assign hist_buf_wr_en = (~hist_wr_en && hist_rq && hist_access_grant && ~c_discard_hist_entry) ||
                               c_gen_next_evt;
    assign hist_buf_din = c_gen_next_evt ? 
-                                 {new_event_target , new_event_time_offest[7:0] ,cur_event_type, cur_lp_id, cur_event_time}
+                                 {new_event_target , new_event_time_offest[7:0], cur_event_type, cur_event_time}
                                  : hist_data_rd;
    assign hist_buf_rd_en = r_hist_wr;
    
@@ -477,11 +477,11 @@ module phold_core
    wire [TIME_WID-1:0] hist_time; 
    assign hist_time = hist_data_rd[0 +: TIME_WID];
    wire hist_type;
-   assign hist_type = hist_data_rd[TIME_WID + NB_LPID +: RBK_TYPE_WID]; // 1 = Cancellation Event, 0 = regular event
+   assign hist_type = hist_data_rd[TIME_WID +: RBK_TYPE_WID]; // 1 = Cancellation Event, 0 = regular event
    wire [RBK_OFFSET_WID-1:0] hist_offset;
-   assign hist_offset = hist_data_rd[TIME_WID + NB_LPID + RBK_TYPE_WID +: RBK_OFFSET_WID];
+   assign hist_offset = hist_data_rd[TIME_WID + RBK_TYPE_WID +: RBK_OFFSET_WID];
    wire [NB_LPID-1:0] hist_target;
-   assign hist_target = hist_data_rd[TIME_WID + NB_LPID + RBK_TYPE_WID + RBK_OFFSET_WID +: NB_LPID];
+   assign hist_target = hist_data_rd[TIME_WID + RBK_TYPE_WID + RBK_OFFSET_WID +: NB_LPID];
    reg c_cancel_match_found, r_cancel_match_found;
    reg c_gen_rollback;
    

@@ -32,8 +32,8 @@ module phold #(
    localparam MSG_WID = 32;         // Width of event message
    localparam NUM_CORE =  4;        
    localparam NB_COREID = 2;
-   localparam NUM_LP = 8;
-   localparam NB_LPID = 3;
+   localparam NUM_LP = 16;
+   localparam NB_LPID = 4;
    // Need to re-generate the core if History table parameters change.
    localparam HIST_WID = 32;
    localparam NB_HIST_ADDR = 8;  // Bits to address the whole history memory, whole size = NUM_LP * (2**NB_HIST_DEPTH)
@@ -253,6 +253,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
 	phold_core
 	 #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ), 
 	   .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH ),
+      .NB_LPID         ( NB_LPID ),
       .NB_HIST_DEPTH   ( NB_HIST_DEPTH )
 	)  phold_core_inst
 	 (
@@ -338,7 +339,9 @@ LFSR prng (
       
    core_monitor #(
       .NUM_CORE(NUM_CORE),
+      .NB_COREID( NB_COREID ),
       .NUM_LP  (NUM_LP  ),
+      .NB_LPID ( NB_LPID ),
       .TIME_WID(TIME_WID),
       .MSG_WID (MSG_WID ),
       .NB_HIST_DEPTH(NB_HIST_DEPTH)
