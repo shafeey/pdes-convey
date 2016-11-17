@@ -16,6 +16,8 @@ module fwft_fifo( rst, clk,
    output reg [3:0]      data_count;
 
    wire we;
+   
+   reg [WIDTH-1:0] ram[0:DEPTH-1];
 
    reg [3:0] head, tail;
    reg looped;
@@ -61,99 +63,104 @@ module fwft_fifo( rst, clk,
       end
    end
    
+   assign we = wr_en && (looped == 0 || head != tail);
+   assign dout = ram[tail];
+   // Memory update
+   always @(posedge clk) begin
+      if (we) ram[head] <= din;
+   end
+     
+   // Status signals
    assign full = (head == tail && looped) ? 1 : 0;
    assign empty = (head == tail && ~looped) ? 1: 0;
 
-   assign we = wr_en && (looped == 0 || head != tail);
 
-
-
-   dist_memory #(.DATA_WIDTH(WIDTH)) fifo_mem(
-     .a(head), // input [3 : 0] a
-     .d(din), // input [31 : 0] d
-     .dpra(tail), // input [3 : 0] dpra
-     .clk(clk), // input clk
-     .we(we), // input we
-     .dpo(dout) // output [31 : 0] dpo
-   );
+//   dist_memory #(.DATA_WIDTH(WIDTH)) fifo_mem(
+//     .a(head), // input [3 : 0] a
+//     .d(din), // input [31 : 0] d
+//     .dpra(tail), // input [3 : 0] dpra
+//     .clk(clk), // input clk
+//     .we(we), // input we
+//     .dpo(dout) // output [31 : 0] dpo
+//   );
    
 endmodule
 
-module dist_memory#(
-   parameter DATA_WIDTH = 32
-   )(
-  a,
-  d,
-  dpra,
-  clk,
-  we,
-  dpo
-);
-
-input [3 : 0] a;
-input [DATA_WIDTH -1: 0] d;
-input [3 : 0] dpra;
-input clk;
-input we;
-output [DATA_WIDTH-1: 0] dpo;
-
-// synthesis translate_off
-
-  DIST_MEM_GEN_V7_2 #(
-    .C_ADDR_WIDTH(4),
-    .C_DEFAULT_DATA("0"),
-    .C_DEPTH(16),
-    .C_FAMILY("virtex6"),
-    .C_HAS_CLK(1),
-    .C_HAS_D(1),
-    .C_HAS_DPO(1),
-    .C_HAS_DPRA(1),
-    .C_HAS_I_CE(0),
-    .C_HAS_QDPO(0),
-    .C_HAS_QDPO_CE(0),
-    .C_HAS_QDPO_CLK(0),
-    .C_HAS_QDPO_RST(0),
-    .C_HAS_QDPO_SRST(0),
-    .C_HAS_QSPO(0),
-    .C_HAS_QSPO_CE(0),
-    .C_HAS_QSPO_RST(0),
-    .C_HAS_QSPO_SRST(0),
-    .C_HAS_SPO(0),
-    .C_HAS_SPRA(0),
-    .C_HAS_WE(1),
-    .C_MEM_INIT_FILE("no_coe_file_loaded"),
-    .C_MEM_TYPE(4),
-    .C_PARSER_TYPE(1),
-    .C_PIPELINE_STAGES(0),
-    .C_QCE_JOINED(0),
-    .C_QUALIFY_WE(0),
-    .C_READ_MIF(0),
-    .C_REG_A_D_INPUTS(0),
-    .C_REG_DPRA_INPUT(0),
-    .C_SYNC_ENABLE(1),
-    .C_WIDTH(DATA_WIDTH)
-  )
-  inst (
-    .A(a),
-    .D(d),
-    .DPRA(dpra),
-    .CLK(clk),
-    .WE(we),
-    .DPO(dpo),
-    .SPRA(),
-    .I_CE(),
-    .QSPO_CE(),
-    .QDPO_CE(),
-    .QDPO_CLK(),
-    .QSPO_RST(),
-    .QDPO_RST(),
-    .QSPO_SRST(),
-    .QDPO_SRST(),
-    .SPO(),
-    .QSPO(),
-    .QDPO()
-  );
-
-// synthesis translate_on
-
-endmodule
+//module dist_memory#(
+//   parameter DATA_WIDTH = 32
+//   )(
+//  a,
+//  d,
+//  dpra,
+//  clk,
+//  we,
+//  dpo
+//);
+//
+//input [3 : 0] a;
+//input [DATA_WIDTH -1: 0] d;
+//input [3 : 0] dpra;
+//input clk;
+//input we;
+//output [DATA_WIDTH-1: 0] dpo;
+//
+//// synthesis translate_off
+//
+//  DIST_MEM_GEN_V7_2 #(
+//    .C_ADDR_WIDTH(4),
+//    .C_DEFAULT_DATA("0"),
+//    .C_DEPTH(16),
+//    .C_FAMILY("virtex6"),
+//    .C_HAS_CLK(1),
+//    .C_HAS_D(1),
+//    .C_HAS_DPO(1),
+//    .C_HAS_DPRA(1),
+//    .C_HAS_I_CE(0),
+//    .C_HAS_QDPO(0),
+//    .C_HAS_QDPO_CE(0),
+//    .C_HAS_QDPO_CLK(0),
+//    .C_HAS_QDPO_RST(0),
+//    .C_HAS_QDPO_SRST(0),
+//    .C_HAS_QSPO(0),
+//    .C_HAS_QSPO_CE(0),
+//    .C_HAS_QSPO_RST(0),
+//    .C_HAS_QSPO_SRST(0),
+//    .C_HAS_SPO(0),
+//    .C_HAS_SPRA(0),
+//    .C_HAS_WE(1),
+//    .C_MEM_INIT_FILE("no_coe_file_loaded"),
+//    .C_MEM_TYPE(4),
+//    .C_PARSER_TYPE(1),
+//    .C_PIPELINE_STAGES(0),
+//    .C_QCE_JOINED(0),
+//    .C_QUALIFY_WE(0),
+//    .C_READ_MIF(0),
+//    .C_REG_A_D_INPUTS(0),
+//    .C_REG_DPRA_INPUT(0),
+//    .C_SYNC_ENABLE(1),
+//    .C_WIDTH(DATA_WIDTH)
+//  )
+//  inst (
+//    .A(a),
+//    .D(d),
+//    .DPRA(dpra),
+//    .CLK(clk),
+//    .WE(we),
+//    .DPO(dpo),
+//    .SPRA(),
+//    .I_CE(),
+//    .QSPO_CE(),
+//    .QDPO_CE(),
+//    .QDPO_CLK(),
+//    .QSPO_RST(),
+//    .QDPO_RST(),
+//    .QSPO_SRST(),
+//    .QDPO_SRST(),
+//    .SPO(),
+//    .QSPO(),
+//    .QDPO()
+//  );
+//
+//// synthesis translate_on
+//
+//endmodule
