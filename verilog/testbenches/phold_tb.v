@@ -5,7 +5,7 @@ module phold_tb;
    localparam NUM_MC_PORTS    = 1;
    localparam MC_RTNCTL_WIDTH = 32;
    localparam TIME_WID = 16;
-   localparam RAM_DEPTH = 256;
+   localparam RAM_DEPTH = 1024;
    
    reg clk;
    reg rst_n;

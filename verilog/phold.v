@@ -32,8 +32,8 @@ module phold #(
    localparam MSG_WID = 32;         // Width of event message
    localparam NUM_CORE =  4;        
    localparam NB_COREID = 2;
-   localparam NUM_LP = 16;
-   localparam NB_LPID = 4;
+   localparam NUM_LP = 64;
+   localparam NB_LPID = 6;
    // Need to re-generate the core if History table parameters change.
    localparam HIST_WID = 32;
    localparam NB_HIST_ADDR = 8;  // Bits to address the whole history memory, whole size = NUM_LP * (2**NB_HIST_DEPTH)
@@ -107,7 +107,7 @@ end
  *  Initialization state.
  *  Used to insert the initial events to the queue.
  */
-reg [3:0] init_counter;
+reg [8:0] init_counter;
 always @(posedge clk or negedge rst_n) begin
 	if(!rst_n) begin
 		init_counter <= 0;
@@ -116,7 +116,7 @@ always @(posedge clk or negedge rst_n) begin
 		init_counter <= (r_state == INIT) ? (init_counter + 1) : 0;
 	end
 end
-assign init_complete = (init_counter == 4'd7);
+assign init_complete = (init_counter == 8'd15);
 
 
 /*
