@@ -18,7 +18,8 @@ module core_monitor #(
       parameter NUM_CORE = 4,
       parameter NUM_LP = 8,
       parameter TIME_WID = 16,
-      parameter MSG_WID = 32
+      parameter MSG_WID = 32,
+      parameter NB_HIST_DEPTH = 4
    )(
       input                 clk,
       input  [MSG_WID-1:0]  msg,          // Message to/from the cores
@@ -53,13 +54,13 @@ module core_monitor #(
    wire   [NUM_CORE-1:0] match;
    wire   [NUM_CORE-1:0] match_rcv; // Match LP id in other cores when receiving events
    
-   reg    [3:0] LP_hist_size[0:NUM_LP-1];
-   reg    [3:0] core_hist_size[0:NUM_CORE-1];
-   wire   [3:0] hist_size;
+   reg    [NB_HIST_DEPTH-1:0] LP_hist_size[0:NUM_LP-1];
+   reg    [NB_HIST_DEPTH-1:0] core_hist_size[0:NUM_CORE-1];
+   wire   [NB_HIST_DEPTH-1:0] hist_size;
    
    genvar p;
    for(p=0; p<NUM_CORE; p = p+1) begin : expand_bus
-       assign core_hist_cnt[p*4 +: 4] = core_hist_size[p];
+       assign core_hist_cnt[p*NB_HIST_DEPTH +: NB_HIST_DEPTH] = core_hist_size[p];
    end
 
    assign LP_id = msg[TIME_WID +: NB_LP];
@@ -115,7 +116,7 @@ module core_monitor #(
    end
    
    
-   assign hist_size = msg[31:28];
+   assign hist_size = msg[MSG_WID-1:MSG_WID-NB_HIST_DEPTH];
    always @(posedge clk or posedge reset) begin
       if(reset) begin : reset_hist_size
          integer i;

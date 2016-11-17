@@ -1,22 +1,24 @@
-module arbiter(
-   input [3:0] req,
+module arbiter#(
+   parameter NR = 4
+   )
+   (
+   input [NR-1:0] req,
    input stall,
    
-   output [3:0] vgnt,
-   output [1:0] egnt,
+   output [NR-1:0] vgnt,
+   output [$clog2(NR)-1:0] egnt,
    output       eval,
    
    input       clk,
    input       reset
    );
-	localparam NR = 4;
    localparam PIPE = 0;
    
-   reg [1:0] last_gnt;
+   reg [$clog2(NR)-1:0] last_gnt;
    reg       last_vld;
    
-   wire [3:0] arb_vgnt;
-   wire [1:0] arb_egnt;
+   wire [NR-1:0] arb_vgnt;
+   wire [$clog2(NR)-1:0] arb_egnt;
    wire arb_eval;
    
    /* Keep track of the last granted line */

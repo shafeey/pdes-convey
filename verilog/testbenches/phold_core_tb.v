@@ -9,6 +9,8 @@ parameter NIDB             = 3;
 parameter NRB              = 8;
 parameter NCB              = 2;
 parameter MC_RTNCTL_WIDTH  = 32;
+parameter MSG_WID = 32;
+
 reg clk;
 reg rst_n;
 reg [NCB-1:0] core_id;
@@ -40,6 +42,9 @@ wire mc_rs_stall;
 reg [47:0] addr;
 reg mem_gnt;
 
+wire [MSG_WID-1:0] cur_event_msg;
+wire [MSG_WID-1:0] new_event_msg;
+   
 initial begin
 	clk = 0;
 	forever #5 clk = ~clk;
@@ -150,6 +155,10 @@ initial begin
 end
 
 
+assign cur_event_msg = { 0 ,event_id ,event_time };
+assign new_event_time = new_event_msg[0 +: 16];
+assign new_event_target = new_event_target[16 +: 3];
+   
 // Instance Declarations
 phold_core
  #(
@@ -163,12 +172,10 @@ phold_core
    .rst_n            ( rst_n ),
    .core_id          ( core_id ),
    .event_valid      ( event_valid ),
-   .event_id         ( event_id ),
-   .event_time       ( event_time ),
+   .cur_event_msg    ( cur_event_msg ),
    .global_time      ( global_time ),
    .random_in        ( random_in ),
-   .new_event_time   ( new_event_time ),
-   .new_event_target ( new_event_target ),
+   .out_event_msg    ( new_event_msg ),
    .new_event_ready  ( new_event_ready ),
    .ready            ( ready ),
    .ack              ( ack ),

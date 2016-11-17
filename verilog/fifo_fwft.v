@@ -2,17 +2,17 @@ module fwft_fifo( rst, clk,
                   rd_en, dout, empty, full, data_count,                
                   wr_en, din);
 
-   parameter width = 32;
+   parameter WIDTH = 32;
    parameter DEPTH = 16;
    
    input                 rst;
    input                 clk;
    input                 rd_en;
    input                 wr_en;
-   input [(width-1):0]   din;
+   input [(WIDTH-1):0]   din;
    output                empty;
    output                full;
-   output [(width-1):0]  dout;
+   output [(WIDTH-1):0]  dout;
    output reg [3:0]      data_count;
 
    wire we;
@@ -68,7 +68,7 @@ module fwft_fifo( rst, clk,
 
 
 
-   dist_memory fifo_mem(
+   dist_memory #(.DATA_WIDTH(WIDTH)) fifo_mem(
      .a(head), // input [3 : 0] a
      .d(din), // input [31 : 0] d
      .dpra(tail), // input [3 : 0] dpra
@@ -79,7 +79,9 @@ module fwft_fifo( rst, clk,
    
 endmodule
 
-module dist_memory(
+module dist_memory#(
+   parameter DATA_WIDTH = 32
+   )(
   a,
   d,
   dpra,
@@ -89,11 +91,11 @@ module dist_memory(
 );
 
 input [3 : 0] a;
-input [31 : 0] d;
+input [DATA_WIDTH -1: 0] d;
 input [3 : 0] dpra;
 input clk;
 input we;
-output [31 : 0] dpo;
+output [DATA_WIDTH-1: 0] dpo;
 
 // synthesis translate_off
 
@@ -129,7 +131,7 @@ output [31 : 0] dpo;
     .C_REG_A_D_INPUTS(0),
     .C_REG_DPRA_INPUT(0),
     .C_SYNC_ENABLE(1),
-    .C_WIDTH(32)
+    .C_WIDTH(DATA_WIDTH)
   )
   inst (
     .A(a),

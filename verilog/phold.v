@@ -31,7 +31,14 @@ module phold #(
    
    localparam MSG_WID = 32;         // Width of event message
    localparam NUM_CORE =  4;        
+   localparam NB_COREID = 2;
    localparam NUM_LP = 8;
+   localparam NB_LPID = 3;
+   // Need to re-generate the core if History table parameters change.
+   localparam HIST_WID = 32;
+   localparam NB_HIST_ADDR = 8;  // Bits to address the whole history memory, whole size = NUM_LP * (2**NB_HIST_DEPTH)
+   localparam NB_HIST_DEPTH = 4; // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
+   
    localparam NUM_MEM_BYTE = 16;
    
    wire [MSG_WID-1:0] msg;
@@ -40,7 +47,7 @@ module phold #(
    wire [NUM_CORE-1:0] stall;
    wire [TIME_WID-1:0] min_time;
    wire min_time_vld;
-   wire [$clog2(NUM_CORE)-1:0] core_id;
+   wire [NB_COREID-1:0] core_id;
    
    wire q_full;
    wire q_empty;
@@ -86,7 +93,7 @@ end
 	
 always @(posedge clk or negedge rst_n) begin
 	if(!rst_n) begin
-		r_state <= 3'b0;
+		r_state <= 0;
 		rtn_vld <= 0;
 	end
 	else begin
@@ -118,26 +125,26 @@ assign init_complete = (init_counter == 4'd7);
 wire enq, deq;
 wire [MSG_WID-1:0] queue_out;
 wire  [MSG_WID-1:0] new_event;
-wire [4:0]	event_count;
+wire [4:0]	event_count; // It's used to display debug statements
 
 wire new_event_available, core_available;
-wire [1:0] rcv_egnt, send_egnt;
-wire [3:0] rcv_vgnt, send_vgnt, rcv_vld, send_vld;
-wire [MSG_WID-1:0] new_event_data[3:0];
+wire [NB_COREID-1:0] rcv_egnt, send_egnt;
+wire [NUM_CORE-1:0] rcv_vgnt, send_vgnt, rcv_vld, send_vld;
+wire [MSG_WID-1:0] new_event_data[NUM_CORE-1:0];
 wire  [MSG_WID-1:0] send_event_data;
 
 assign enq = (r_state == INIT) | 
 				((r_state == RUNNING) ? new_event_available : 1'b0) ;
 assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
-assign new_event = (r_state == INIT) ? {init_counter, {TIME_WID{1'b0}} }:
+assign new_event = (r_state == INIT) ? {init_counter[0 +: NB_LPID], {TIME_WID{1'b0}} }:
 						new_event_data[rcv_egnt];
 						
 
 /*
  *	Submodule instantiations
  */
-wire [3:0] mem_req, mem_vgnt;
-wire [1:0] mem_egnt;
+wire [NUM_CORE-1:0] mem_req, mem_vgnt;
+wire [NB_COREID-1:0] mem_egnt;
 wire mem_req_vld;
 wire send_event_valid, next_rnd;
 assign send_event_data = queue_out;
@@ -175,8 +182,8 @@ arbiter  mem_rrarb (	// Memory access arbiter
 	.egnt   ( mem_egnt )
    );
 
-wire [3:0] hist_req, hist_vgnt;
-wire [1:0] hist_egnt;
+wire [NUM_CORE-1:0] hist_req, hist_vgnt;
+wire [NB_COREID-1:0] hist_egnt;
 wire hist_req_vld;
 
 arbiter  history_arbiter (   // Event history table arbiter
@@ -189,14 +196,14 @@ arbiter  history_arbiter (   // Event history table arbiter
    .egnt   ( hist_egnt )
    );
 
-wire [3:0]  hist_wr_en;
-wire [7:0]  hist_addr[3:0];
-wire [31:0] hist_data_wr[3:0];
-wire [31:0] hist_data_rd;
+wire [NUM_CORE-1:0]  hist_wr_en;
+wire [NB_HIST_ADDR-1:0]  hist_addr[NUM_CORE-1:0];
+wire [HIST_WID-1:0] hist_data_wr[NUM_CORE-1:0];
+wire [HIST_WID-1:0] hist_data_rd;
 
-wire [3:0]  hist_wea;
-wire [7:0]  hist_addra;
-wire [31:0] hist_dina;
+wire  hist_wea; // history table write enable
+wire [NB_HIST_ADDR-1:0]  hist_addra;
+wire [HIST_WID-1:0] hist_dina;
 
 assign hist_wea = hist_wr_en[hist_egnt];
 assign hist_addra = hist_addr[hist_egnt];
@@ -210,11 +217,7 @@ bram_sp_32 event_history_table(
       .douta(hist_data_rd)  // output [31 : 0] douta
    );
 
-wire [7:0] random_in;
-wire [TIME_WID-1:0] event_time;
-wire [2:0] event_id;
-assign event_time = send_event_data[TIME_WID-1:0];
-assign event_id = send_event_data[TIME_WID +: 3];
+wire [7:0] random_in; // TODO: Parameterize when PRNG needs any change
 
 wire [3:0] p_mc_rq_vld;
 wire [2:0] p_mc_rq_cmd[3:0];
@@ -237,24 +240,25 @@ assign mc_rq_data = p_mc_rq_data[mem_egnt];
 assign mc_rq_flush = p_mc_rq_flush[mem_egnt];
 assign mc_rs_stall = p_mc_rs_stall[mem_egnt];
 
-wire [4*NUM_CORE-1:0] core_hist_cnt;
+wire [NB_HIST_DEPTH*NUM_CORE-1:0] core_hist_cnt;
 wire [NUM_CORE-1:0] core_active;
 // Phold Core instantiation
 genvar g;
 generate
-for (g = 0; g < 4; g = g+1) begin : gen_phold_core
+for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
 	wire event_valid, new_event_ready, ack, ready;
-	wire [2:0] new_event_target;
+	wire [NB_LPID-1:0] new_event_target;
 	wire [TIME_WID-1:0] new_event_time;
 
 	phold_core
 	 #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ), 
-	   .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH )
+	   .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH ),
+      .NB_HIST_DEPTH   ( NB_HIST_DEPTH )
 	)  phold_core_inst
 	 (
 	   .clk              ( clk ),
 	   .rst_n            ( rst_n ),
-	   .core_id          ( g ),
+	   .core_id          ( g[0 +: NB_COREID] ),
 	   .event_valid      ( event_valid ),
       .cur_event_msg    ( send_event_data ),
 	   .global_time      ( gvt ),
@@ -272,7 +276,7 @@ for (g = 0; g < 4; g = g+1) begin : gen_phold_core
 	   .hist_wr_en       ( hist_wr_en[g] ),
       .hist_rq          ( hist_req[g] ),
       .hist_access_grant( hist_vgnt[g] ),
-      .hist_size        ( core_hist_cnt[g*4 +: 4]),
+      .hist_size        ( core_hist_cnt[g*NB_HIST_DEPTH +: NB_HIST_DEPTH]),
       
 	   .mc_rq_vld        ( p_mc_rq_vld[g] ),
 	   .mc_rq_cmd        ( p_mc_rq_cmd[g] ),
@@ -302,7 +306,7 @@ endgenerate
 
 wire prio_q_enq;
 /* Prevent enqueue of null message(equivalent to {1'b1, 19'b0}) */
-assign prio_q_enq = enq && (new_event[0 +: 20] != {1'b1, 19'b0});
+assign prio_q_enq = enq && (new_event[0 +: NB_LPID + TIME_WID + 1] != {1'b1, {NB_LPID + TIME_WID{1'b0}} }); 
 
 // Event queue instantiation
 prio_q #(.CMP_WID(TIME_WID)) queue(
@@ -336,7 +340,8 @@ LFSR prng (
       .NUM_CORE(NUM_CORE),
       .NUM_LP  (NUM_LP  ),
       .TIME_WID(TIME_WID),
-      .MSG_WID (MSG_WID )
+      .MSG_WID (MSG_WID ),
+      .NB_HIST_DEPTH(NB_HIST_DEPTH)
    ) u_core_monitor (
       .clk         (clk         ),
       .msg         (msg         ),
@@ -377,8 +382,8 @@ LFSR prng (
     $write("GVT:%5d ",gvt);
     for(i=0; i<NUM_CORE; i=i+1) begin
        if(send_egnt == i && deq) begin
-          $write("|%1d->%-5d", send_event_data[TIME_WID +: 3], send_event_data[0 +: TIME_WID]);
-          if(send_event_data[19]) $write("# ");
+          $write("|%1d->%-5d", send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID]);
+          if(send_event_data[NB_LPID + TIME_WID]) $write("# ");
           else $write("> ");
        end 
        else $write("|          ");
@@ -392,16 +397,16 @@ LFSR prng (
           $write("x ");
        
        if(rcv_egnt == i && enq)
-          if(new_event[19:0] == {1'b1, 19'b0}) $write(">>########|");
+          if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write(">>########|");
           else begin
-             if(new_event[19]) $write("#");
+             if(new_event[NB_LPID + TIME_WID]) $write("#");
              else $write(" ");
-             $write(">%1d->%-5d|",new_event[TIME_WID +: 3], new_event[0+:TIME_WID]);
+             $write(">%1d->%-5d|",new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID]);
           end 
        else $write("          |");    
     end
     $write("Q:%2d",event_count);if(event_count >0) $write("[%5d]",queue_out[0+:TIME_WID]);
-    if(enq) $write("~H:%2d", new_event[31:28]);
+    if(enq) $write("~H:%2d", new_event[MSG_WID - NB_HIST_DEPTH +: NB_HIST_DEPTH]);
     $write("\n");
     
     if(event_count > 25) $display("** Warning: Event count = %2d", event_count);

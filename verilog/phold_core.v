@@ -9,8 +9,8 @@ module phold_core
    parameter MSG_WID = 32,
    parameter TIME_WID = 16,
    parameter HIST_WID = 32,
-   parameter NB_HIST_ADDR = 8,
-   parameter NB_HIST_DEPTH = 4,
+   parameter NB_HIST_ADDR = 8,  // Bits to address the whole history memory, whole size = NUM_LP * (2**NB_HIST_DEPTH)
+   parameter NB_HIST_DEPTH = 4, // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
 	parameter    MC_RTNCTL_WIDTH = 32
 	)(
 	input clk,
@@ -111,9 +111,8 @@ module phold_core
 	assign mc_rq_size = MC_SIZE_QUAD;	// all requests are 8-byte
 	assign mc_rq_flush = 1'b0;		// write flush not used in this design
 
-	assign mc_rs_stall = 1'b0;		// we can always take responses since we
-					// have room in the result fifo for any 
-					// data we've requested
+	assign mc_rs_stall = 1'b0;		// we never stall, we can always take responses since we
+					// have room in the result fifo for any data we've requested
 	
 	always@(posedge clk) begin
 		if(event_valid) begin
@@ -458,7 +457,7 @@ module phold_core
    assign hist_buf_rd_en = r_hist_wr;
    
    fwft_fifo #(
-      .width(32),
+      .WIDTH(32),
       .DEPTH(16)
    ) hist_buffer (
       .rst       (~rst_n || r_state == IDLE ),
@@ -479,10 +478,10 @@ module phold_core
    assign hist_time = hist_data_rd[0 +: TIME_WID];
    wire hist_type;
    assign hist_type = hist_data_rd[TIME_WID + NB_LPID +: RBK_TYPE_WID]; // 1 = Cancellation Event, 0 = regular event
+   wire [RBK_OFFSET_WID-1:0] hist_offset;
+   assign hist_offset = hist_data_rd[TIME_WID + NB_LPID + RBK_TYPE_WID +: RBK_OFFSET_WID];
    wire [NB_LPID-1:0] hist_target;
-   assign hist_target = hist_data_rd[30:28]; // TODO: parameterize the range selection
-   wire [7:0] hist_offset;
-   assign hist_offset = hist_data_rd[27:20];
+   assign hist_target = hist_data_rd[TIME_WID + NB_LPID + RBK_TYPE_WID + RBK_OFFSET_WID +: NB_LPID];
    reg c_cancel_match_found, r_cancel_match_found;
    reg c_gen_rollback;
    
@@ -526,7 +525,7 @@ module phold_core
       r_discard_cur_evt <= (r_state == IDLE) ? 0 : c_discard_cur_evt;
       cancel_evt_msg <= (r_state == IDLE) ? 0 :
                               (c_gen_cancel && ~r_gen_cancel ? 
-                                 { 12'b0, 1'b1, hist_target, hist_time + hist_offset } : cancel_evt_msg);
+                                 { {EVT_TYPE_WID{1'b1}}, hist_target, hist_time + hist_offset } : cancel_evt_msg);
       r_gen_cancel <= (r_state == IDLE) ? 0 : c_gen_cancel;
    end 
    
@@ -536,7 +535,7 @@ module phold_core
    assign out_buf_din = hist_data_rd;
                            
    fwft_fifo #(
-      .width(32),
+      .WIDTH(32),
       .DEPTH(16)
    ) out_buffer (
       .rst       (~rst_n || r_state == IDLE ),
