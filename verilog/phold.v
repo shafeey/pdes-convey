@@ -36,8 +36,8 @@ module phold #(
    localparam NB_LPID = 6;
    // Need to re-generate the core if History table parameters change.
    localparam HIST_WID = 32;
-   localparam NB_HIST_ADDR = 8;  // Bits to address the whole history memory, whole size = NUM_LP * (2**NB_HIST_DEPTH)
    localparam NB_HIST_DEPTH = 4; // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
+   localparam NB_HIST_ADDR = NB_HIST_DEPTH + NB_LPID;  // Bits to address the whole history memory, whole size = NUM_LP * (2**NB_HIST_DEPTH)
    
    localparam NUM_MEM_BYTE = 16;
    
@@ -209,7 +209,20 @@ assign hist_wea = hist_wr_en[hist_egnt];
 assign hist_addra = hist_addr[hist_egnt];
 assign hist_dina = hist_data_wr[hist_egnt];
 
-bram_sp_32 event_history_table(
+//bram_sp_32 event_history_table(
+//      .clka (~clk ), // input clka
+//      .wea  (hist_wea && hist_req_vld), // input [0 : 0] wea
+//      .addra(hist_addra), // input [7 : 0] addra
+//      .dina (hist_dina), // input [31 : 0] dina
+//      .douta(hist_data_rd)  // output [31 : 0] douta
+//   );
+
+hist_table #(
+   .WIDTH(HIST_WID),
+   .DEPTH(2 ** NB_HIST_ADDR),
+   .ADDR_WID (NB_HIST_ADDR)
+   )
+   history_table(
       .clka (~clk ), // input clka
       .wea  (hist_wea && hist_req_vld), // input [0 : 0] wea
       .addra(hist_addra), // input [7 : 0] addra
@@ -254,6 +267,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
 	 #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ), 
 	   .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH ),
       .NB_LPID         ( NB_LPID ),
+      .NB_HIST_ADDR    ( NB_LPID + NB_HIST_DEPTH ),
       .NB_HIST_DEPTH   ( NB_HIST_DEPTH )
 	)  phold_core_inst
 	 (

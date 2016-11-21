@@ -1,7 +1,7 @@
 `timescale 1ns/100ps
 module phold_tb;
 
-   localparam SIM_END_TIME = 1000;  // Target GVT value when process returns
+   localparam SIM_END_TIME = 8000;  // Target GVT value when process returns
    localparam NUM_MC_PORTS    = 1;
    localparam MC_RTNCTL_WIDTH = 32;
    localparam TIME_WID = 16;

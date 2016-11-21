@@ -14,7 +14,7 @@ module fifo_tb;
    wire [4:0] count;
 
    fwft_fifo #(
-      .width(width)
+      .WIDTH(width)
    ) dut (
       .rst      (rst      ),
       .clk      (clk      ),

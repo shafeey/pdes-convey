@@ -216,6 +216,7 @@ module phold_core
             c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
             c_hist_cnt = r_hist_cnt;
             if(hist_access_grant) begin
+//               $display("read history: core %d, lp:%d, cnt: %d, addr:%h, value: %h", core_id, cur_lp_id, r_hist_cnt, c_hist_addr, hist_data_rd);
                c_hist_cnt = r_hist_cnt + 1;
                if(r_hist_cnt == hist_size - 1 ) begin
                   c_hist_cnt = 0;
@@ -274,6 +275,7 @@ module phold_core
             c_hist_data_wr = hist_buf_data;
             c_hist_cnt = r_hist_cnt;
             if(hist_access_grant) begin
+//               $display("write history: core %d, lp:%d, cnt: %d, addr:%h, value: %h", core_id, cur_lp_id, r_hist_cnt, c_hist_addr, c_hist_data_wr);
                c_hist_cnt = r_hist_cnt + 1;
                if(r_hist_cnt == hist_buf_ret_size -1) begin 
                   c_hist_cnt = 0;
