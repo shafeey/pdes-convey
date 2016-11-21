@@ -27,13 +27,13 @@ module core_monitor #(
       input  [MSG_WID-1:0]  msg,          // Message to/from the cores
       input                 sent_msg_vld, // Message sent from queue to cores
       input                 rcv_msg_vld,  // Message sent from cores to queue
-      input  [$clog2(NUM_CORE)-1:0]  core_id,
+      input  [NB_COREID-1:0]  core_id,
       output [NUM_CORE-1:0] stall,        // Stall signals for the cores
       
       output [TIME_WID-1:0]   min_time,     // Smallest timestamp within active cores
       output                min_time_vld,
       
-      output [4*NUM_CORE-1:0]          core_hist_cnt,
+      output [NB_HIST_DEPTH*NUM_CORE-1:0]          core_hist_cnt,
       input [NUM_CORE-1:0] core_active,
 
       input                 reset

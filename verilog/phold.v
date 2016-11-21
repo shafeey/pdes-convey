@@ -30,10 +30,10 @@ module phold #(
    );
    
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  4;        
-   localparam NB_COREID = 2;
-   localparam NUM_LP = 64;
-   localparam NB_LPID = 6;
+   localparam NUM_CORE =  16;        
+   localparam NB_COREID = 4;
+   localparam NUM_LP = 32;
+   localparam NB_LPID = 5;
    // Need to re-generate the core if History table parameters change.
    localparam HIST_WID = 32;
    localparam NB_HIST_DEPTH = 4; // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
@@ -152,7 +152,7 @@ assign send_event_valid = deq;
 assign next_rnd = deq || (r_state == INIT);
 
 // Round robin arbiter
-arbiter  rcv_rrarb (	// Receive new events from the cores
+arbiter #(.NR(NUM_CORE))  rcv_rrarb (	// Receive new events from the cores
 	.clk    ( clk ),
 	.reset  ( ~rst_n ),
 	.req    ( rcv_vld ),
@@ -162,7 +162,7 @@ arbiter  rcv_rrarb (	// Receive new events from the cores
 	.egnt   ( rcv_egnt )
 );
 
-rrarb  send_rrarb (	// Dispatch new events to the cores
+rrarb #(.NR(NUM_CORE))  send_rrarb (	// Dispatch new events to the cores
 	.clk    ( clk ),
 	.reset  ( ~rst_n ),
 	.req    ( send_vld ),
@@ -172,7 +172,7 @@ rrarb  send_rrarb (	// Dispatch new events to the cores
 	.egnt   ( send_egnt )
 );
 
-arbiter  mem_rrarb (	// Memory access arbiter
+arbiter #(.NR(NUM_CORE)) mem_rrarb (	// Memory access arbiter
 	.clk    ( clk ),
 	.reset  ( ~rst_n ),
 	.req    ( mem_req ),
@@ -186,7 +186,7 @@ wire [NUM_CORE-1:0] hist_req, hist_vgnt;
 wire [NB_COREID-1:0] hist_egnt;
 wire hist_req_vld;
 
-arbiter  history_arbiter (   // Event history table arbiter
+arbiter #(.NR(NUM_CORE))  history_arbiter (   // Event history table arbiter
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( hist_req ),
@@ -232,15 +232,15 @@ hist_table #(
 
 wire [7:0] random_in; // TODO: Parameterize when PRNG needs any change
 
-wire [3:0] p_mc_rq_vld;
-wire [2:0] p_mc_rq_cmd[3:0];
-wire [3:0] p_mc_rq_scmd[3:0];
-wire [47:0] p_mc_rq_vadr[3:0];
-wire [1:0] p_mc_rq_size[3:0];
-wire [MC_RTNCTL_WIDTH-1:0] p_mc_rq_rtnctl[3:0];
-wire [63:0] p_mc_rq_data[3:0];
-wire [3:0] p_mc_rq_flush;
-wire [3:0] p_mc_rs_stall;
+wire [NUM_CORE-1:0] p_mc_rq_vld;
+wire [2:0] p_mc_rq_cmd[NUM_CORE-1:0];
+wire [3:0] p_mc_rq_scmd[NUM_CORE-1:0];
+wire [47:0] p_mc_rq_vadr[NUM_CORE-1:0];
+wire [1:0] p_mc_rq_size[NUM_CORE-1:0];
+wire [MC_RTNCTL_WIDTH-1:0] p_mc_rq_rtnctl[NUM_CORE-1:0];
+wire [63:0] p_mc_rq_data[NUM_CORE-1:0];
+wire [NUM_CORE-1:0] p_mc_rq_flush;
+wire [NUM_CORE-1:0] p_mc_rs_stall;
 
 assign mem_req = p_mc_rq_vld;
 assign mc_rq_vld = mem_req_vld;
@@ -266,6 +266,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
 	phold_core
 	 #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ), 
 	   .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH ),
+      .NB_COREID       ( NB_COREID ),
       .NB_LPID         ( NB_LPID ),
       .NB_HIST_ADDR    ( NB_LPID + NB_HIST_DEPTH ),
       .NB_HIST_DEPTH   ( NB_HIST_DEPTH )
