@@ -430,5 +430,73 @@ LFSR prng (
     if(event_count > 25) $display("** Warning: Event count = %2d", event_count);
  end 
 `endif
+
+`ifdef ANALYSIS
+   reg [31:0] cycle;
+      genvar k;
+      reg [15:0] memld[0:NUM_CORE-1];
+      reg [15:0] memst[0:NUM_CORE-1];
+      reg [15:0] total[0:NUM_CORE-1];
+      wire [NUM_CORE-1:0] end_iter;
+ 
+      for(k=0; k<NUM_CORE; k=k+1) begin :collect_stat 
+         always @(posedge clk) begin
+            if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.IDLE) begin
+               memld[k] <= 0;
+               memst[k] <= 0;
+               total[k] <= 0;
+            end
+            else begin
+               if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.LD_RTN) memld[k] <= memld[k] + 1;
+               if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.ST_RTN) memst[k] <= memst[k] + 1;
+               total[k] <= total[k] + 1;
+            end
+         end
+         assign end_iter[k] = ((gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.WAIT)) &&
+            gen_phold_core[k].phold_core_inst.ack && gen_phold_core[k].phold_core_inst.out_buf_empty;
+      end
+      
+ 
+   always @(posedge clk) begin : analysis
+      integer i;
+      cycle = rst_n ? (cycle + 1) : 0;
+      
+      // Transactions
+      for(i=0; i<NUM_CORE; i=i+1) begin
+       if(send_egnt == i && deq) begin
+          $write("%8d: sent: %2d->%5d to core %2d", cycle, send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID], i);
+          if(send_event_data[NB_LPID + TIME_WID]) $write(" (C)");
+          $write("\n");
+       end 
+       
+       if(rcv_egnt == i && enq)
+          if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write("%8d: null from core %2d\n", cycle, i);
+          else begin
+             $write("%8d: recv: %2d->%5d from core %2d", cycle, new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID], i);
+             if(new_event[NB_LPID + TIME_WID]) $write(" (C)");
+             if(end_iter[i])
+                  $write(" - memld: %d, memst: %d, total: %d", cycle, memld[i], memst[i], total[i]);
+             $write("\n");
+          end 
+      end
+                
+      // Core status
+      $write("%8d: ", cycle);
+      for(i=0; i<NUM_CORE; i=i+1) begin
+       if(core_active[i]) begin
+          $write(" %2d ", u_core_monitor.core_LP_id[i]);
+          if(u_core_monitor.stall[i]) $write("*");
+       end 
+       else
+          $write("  x");
+      end
+      $write("\n");
+
+      // Memory requests
+      if(|mem_rrarb.req) $display("%8d: mem: %b", cycle, mem_rrarb.req);
+      if(|history_arbiter.req) $display("%8d: hist: %b", cycle, history_arbiter.req);
+      
+   end
+`endif
  
 endmodule
