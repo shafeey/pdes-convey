@@ -1,7 +1,7 @@
 module phold #(
 	parameter    NUM_MC_PORTS = 1,
 	parameter    MC_RTNCTL_WIDTH = 32, // Width of timestamps
-   parameter    SIM_END_TIME = 16000,  // Target GVT value when process returns
+   parameter    SIM_END_TIME = 4000,  // Target GVT value when process returns
    parameter    TIME_WID = 16
    )(
 	input clk,
@@ -432,7 +432,7 @@ LFSR prng (
 `endif
 
 `ifdef ANALYSIS
-   reg [31:0] cycle;
+   reg [63:0] cycle;
       genvar k;
       reg [15:0] memld[0:NUM_CORE-1];
       reg [15:0] memst[0:NUM_CORE-1];
@@ -466,6 +466,7 @@ LFSR prng (
        if(send_egnt == i && deq) begin
           $write("%8d: sent: %2d->%5d to core %2d", cycle, send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID], i);
           if(send_event_data[NB_LPID + TIME_WID]) $write(" (C)");
+          $write("GVT: %d", gvt);
           $write("\n");
        end 
        
