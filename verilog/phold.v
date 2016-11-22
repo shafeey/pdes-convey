@@ -1,36 +1,36 @@
 module phold #(
-	parameter    NUM_MC_PORTS = 1,
-	parameter    MC_RTNCTL_WIDTH = 32, // Width of timestamps
+   parameter    NUM_MC_PORTS = 1,
+   parameter    MC_RTNCTL_WIDTH = 32, // Width of timestamps
    parameter    SIM_END_TIME = 4000,  // Target GVT value when process returns
    parameter    TIME_WID = 16
    )(
-	input clk,
-	input rst_n,
-	
-	input [47:0]	addr,	
-	output reg [TIME_WID-1:0] gvt,
-	output reg rtn_vld,
-	
-	output			mc_rq_vld,
-	output [2:0]	mc_rq_cmd,
-	output [3:0]	mc_rq_scmd,
-	output [47:0]	mc_rq_vadr,
-	output [1:0]	mc_rq_size,
-	output [MC_RTNCTL_WIDTH-1:0]	mc_rq_rtnctl,
-	output [63:0]	mc_rq_data,
-	output 			mc_rq_flush,
-	input			mc_rq_stall,
+   input clk,
+   input rst_n,
 
-	input			mc_rs_vld,
-	input  [2:0]	mc_rs_cmd,
-	input  [3:0]	mc_rs_scmd,
-	input  [MC_RTNCTL_WIDTH-1:0]	mc_rs_rtnctl,
-	input  [63:0]	mc_rs_data,
-	output			mc_rs_stall
+   input [47:0]	addr,
+   output reg [TIME_WID-1:0] gvt,
+   output reg rtn_vld,
+
+   output			mc_rq_vld,
+   output [2:0]	mc_rq_cmd,
+   output [3:0]	mc_rq_scmd,
+   output [47:0]	mc_rq_vadr,
+   output [1:0]	mc_rq_size,
+   output [MC_RTNCTL_WIDTH-1:0]	mc_rq_rtnctl,
+   output [63:0]	mc_rq_data,
+   output 			mc_rq_flush,
+   input			mc_rq_stall,
+
+   input			mc_rs_vld,
+   input  [2:0]	mc_rs_cmd,
+   input  [3:0]	mc_rs_scmd,
+   input  [MC_RTNCTL_WIDTH-1:0]	mc_rs_rtnctl,
+   input  [63:0]	mc_rs_data,
+   output			mc_rs_stall
    );
-   
+
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  16;        
+   localparam NUM_CORE =  16;
    localparam NB_COREID = 4;
    localparam NUM_LP = 32;
    localparam NB_LPID = 5;
@@ -38,9 +38,9 @@ module phold #(
    localparam HIST_WID = 32;
    localparam NB_HIST_DEPTH = 4; // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
    localparam NB_HIST_ADDR = NB_HIST_DEPTH + NB_LPID;  // Bits to address the whole history memory, whole size = NUM_LP * (2**NB_HIST_DEPTH)
-   
+
    localparam NUM_MEM_BYTE = 16;
-   
+
    wire [MSG_WID-1:0] msg;
    wire sent_msg_vld;
    wire rcv_msg_vld;
@@ -48,58 +48,58 @@ module phold #(
    wire [TIME_WID-1:0] min_time;
    wire min_time_vld;
    wire [NB_COREID-1:0] core_id;
-   
+
    wire q_full;
    wire q_empty;
-   
+
 /*
  * State Machine
  */
 localparam 	IDLE = 3'd0,
-			INIT = 3'd1,
-			READY = 3'd2,
-			RUNNING = 3'd3,
-			FINISHED = 3'd4;
+         INIT = 3'd1,
+         READY = 3'd2,
+         RUNNING = 3'd3,
+         FINISHED = 3'd4;
 
 wire init_complete;
 reg	[2:0]	c_state, r_state;
 reg c_rtn_vld;
 
 always @* begin : state_transitions
-	c_state = r_state;
-	c_rtn_vld = rtn_vld;
-	
-	case(r_state)
-	IDLE:
-		if(rst_n)
-			c_state = INIT;
-	INIT:
-		if(init_complete) begin
-			c_state = READY;
-		end
-	READY:
-		c_state = RUNNING;
-	RUNNING:
-		if(gvt > SIM_END_TIME) begin
-			c_state = FINISHED;
-			c_rtn_vld = 1;
-		end
-	FINISHED: begin
-		c_state = IDLE;
-		c_rtn_vld = 0;
-	end
-	endcase
+   c_state = r_state;
+   c_rtn_vld = rtn_vld;
+
+   case(r_state)
+   IDLE:
+      if(rst_n)
+         c_state = INIT;
+   INIT:
+      if(init_complete) begin
+         c_state = READY;
+      end
+   READY:
+      c_state = RUNNING;
+   RUNNING:
+      if(gvt > SIM_END_TIME) begin
+         c_state = FINISHED;
+         c_rtn_vld = 1;
+      end
+   FINISHED: begin
+      c_state = IDLE;
+      c_rtn_vld = 0;
+   end
+   endcase
 end
-	
+
 always @(posedge clk or negedge rst_n) begin
-	if(!rst_n) begin
-		r_state <= 0;
-		rtn_vld <= 0;
-	end
-	else begin
-		r_state <= c_state;
-		rtn_vld <= c_rtn_vld;
-	end
+   if(!rst_n) begin
+      r_state <= 0;
+      rtn_vld <= 0;
+   end
+   else begin
+      r_state <= c_state;
+      rtn_vld <= c_rtn_vld;
+   end
 end
 
 
@@ -109,12 +109,12 @@ end
  */
 reg [8:0] init_counter;
 always @(posedge clk or negedge rst_n) begin
-	if(!rst_n) begin
-		init_counter <= 0;
-	end
-	else begin
-		init_counter <= (r_state == INIT) ? (init_counter + 1) : 0;
-	end
+   if(!rst_n) begin
+      init_counter <= 0;
+   end
+   else begin
+      init_counter <= (r_state == INIT) ? (init_counter + 1) : 0;
+   end
 end
 assign init_complete = (init_counter == 8'd15);
 
@@ -133,12 +133,12 @@ wire [NUM_CORE-1:0] rcv_vgnt, send_vgnt, rcv_vld, send_vld;
 wire [MSG_WID-1:0] new_event_data[NUM_CORE-1:0];
 wire  [MSG_WID-1:0] send_event_data;
 
-assign enq = (r_state == INIT) | 
-				((r_state == RUNNING) ? new_event_available : 1'b0) ;
+assign enq = (r_state == INIT) |
+            ((r_state == RUNNING) ? new_event_available : 1'b0) ;
 assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
 assign new_event = (r_state == INIT) ? {init_counter[0 +: NB_LPID], {TIME_WID{1'b0}} }:
-						new_event_data[rcv_egnt];
-						
+                  new_event_data[rcv_egnt];
+
 
 /*
  *	Submodule instantiations
@@ -153,33 +153,33 @@ assign next_rnd = deq || (r_state == INIT);
 
 // Round robin arbiter
 arbiter #(.NR(NUM_CORE))  rcv_rrarb (	// Receive new events from the cores
-	.clk    ( clk ),
-	.reset  ( ~rst_n ),
-	.req    ( rcv_vld ),
-	.stall  ( 1'b0 ),
-	.vgnt   ( rcv_vgnt ),
-	.eval   ( new_event_available ),
-	.egnt   ( rcv_egnt )
+   .clk    ( clk ),
+   .reset  ( ~rst_n ),
+   .req    ( rcv_vld ),
+   .stall  ( 1'b0 ),
+   .vgnt   ( rcv_vgnt ),
+   .eval   ( new_event_available ),
+   .egnt   ( rcv_egnt )
 );
 
 rrarb #(.NR(NUM_CORE))  send_rrarb (	// Dispatch new events to the cores
-	.clk    ( clk ),
-	.reset  ( ~rst_n ),
-	.req    ( send_vld ),
-	.stall  ( 1'b0 ),
-	.vgnt   ( send_vgnt ),
-	.eval   ( core_available ),
-	.egnt   ( send_egnt )
+   .clk    ( clk ),
+   .reset  ( ~rst_n ),
+   .req    ( send_vld ),
+   .stall  ( 1'b0 ),
+   .vgnt   ( send_vgnt ),
+   .eval   ( core_available ),
+   .egnt   ( send_egnt )
 );
 
 arbiter #(.NR(NUM_CORE)) mem_rrarb (	// Memory access arbiter
-	.clk    ( clk ),
-	.reset  ( ~rst_n ),
-	.req    ( mem_req ),
-	.stall  ( mem_req[mem_egnt] && mem_vgnt[mem_egnt] ),
-	.vgnt   ( mem_vgnt ),
-	.eval   ( mem_req_vld ),
-	.egnt   ( mem_egnt )
+   .clk    ( clk ),
+   .reset  ( ~rst_n ),
+   .req    ( mem_req ),
+   .stall  ( mem_req[mem_egnt] && mem_vgnt[mem_egnt] ),
+   .vgnt   ( mem_vgnt ),
+   .eval   ( mem_req_vld ),
+   .egnt   ( mem_egnt )
    );
 
 wire [NUM_CORE-1:0] hist_req, hist_vgnt;
@@ -259,82 +259,82 @@ wire [NUM_CORE-1:0] core_active;
 genvar g;
 generate
 for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
-	wire event_valid, new_event_ready, ack, ready;
-	wire [NB_LPID-1:0] new_event_target;
-	wire [TIME_WID-1:0] new_event_time;
+   wire event_valid, new_event_ready, ack, ready;
+   wire [NB_LPID-1:0] new_event_target;
+   wire [TIME_WID-1:0] new_event_time;
 
-	phold_core
-	 #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ), 
-	   .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH ),
+   phold_core
+    #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ),
+      .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH ),
       .NB_COREID       ( NB_COREID ),
       .NB_LPID         ( NB_LPID ),
       .NB_HIST_ADDR    ( NB_LPID + NB_HIST_DEPTH ),
       .NB_HIST_DEPTH   ( NB_HIST_DEPTH )
-	)  phold_core_inst
-	 (
-	   .clk              ( clk ),
-	   .rst_n            ( rst_n ),
-	   .core_id          ( g[0 +: NB_COREID] ),
-	   .event_valid      ( event_valid ),
+   )  phold_core_inst
+    (
+      .clk              ( clk ),
+      .rst_n            ( rst_n ),
+      .core_id          ( g[0 +: NB_COREID] ),
+      .event_valid      ( event_valid ),
       .cur_event_msg    ( send_event_data ),
-	   .global_time      ( gvt ),
-	   .random_in        ( random_in ),
+      .global_time      ( gvt ),
+      .random_in        ( random_in ),
       .out_event_msg    ( new_event_data[g] ),
-	   .new_event_ready  ( new_event_ready ),
+      .new_event_ready  ( new_event_ready ),
       .active           ( core_active[g] ),
-	   .stall            ( stall[g] ),
-	   .ready            ( ready ),
-	   .ack              ( ack ),
-      
-	   .hist_addr        ( hist_addr[g]),
-	   .hist_data_rd     ( hist_data_rd ),
-	   .hist_data_wr     ( hist_data_wr[g] ),
-	   .hist_wr_en       ( hist_wr_en[g] ),
+      .stall            ( stall[g] ),
+      .ready            ( ready ),
+      .ack              ( ack ),
+
+      .hist_addr        ( hist_addr[g]),
+      .hist_data_rd     ( hist_data_rd ),
+      .hist_data_wr     ( hist_data_wr[g] ),
+      .hist_wr_en       ( hist_wr_en[g] ),
       .hist_rq          ( hist_req[g] ),
       .hist_access_grant( hist_vgnt[g] ),
       .hist_size        ( core_hist_cnt[g*NB_HIST_DEPTH +: NB_HIST_DEPTH]),
-      
-	   .mc_rq_vld        ( p_mc_rq_vld[g] ),
-	   .mc_rq_cmd        ( p_mc_rq_cmd[g] ),
-	   .mc_rq_scmd       ( p_mc_rq_scmd[g] ),
-	   .mc_rq_vadr       ( p_mc_rq_vadr[g] ),
-	   .mc_rq_size       ( p_mc_rq_size[g] ),
-	   .mc_rq_rtnctl     ( p_mc_rq_rtnctl[g] ),
-	   .mc_rq_data       ( p_mc_rq_data[g] ),
-	   .mc_rq_flush      ( p_mc_rq_flush[g] ),
-	   .mc_rq_stall      ( mc_rq_stall ),
-	   .mc_rs_vld        ( mc_rs_vld ),
-	   .mc_rs_cmd        ( mc_rs_cmd ),
-	   .mc_rs_scmd       ( mc_rs_scmd ),
-	   .mc_rs_rtnctl     ( mc_rs_rtnctl ),
-	   .mc_rs_data       ( mc_rs_data ),
-	   .mc_rs_stall      ( p_mc_rs_stall[g] ),
-	   .addr             ( addr ),
-	   .mem_gnt          ( mem_vgnt[g] )
-	);
-	
-	assign event_valid = send_event_valid & send_vgnt[g];
-	assign rcv_vld[g] = new_event_ready;	
-	assign ack = rcv_vgnt[g];	
-	assign send_vld[g] = ready;
+
+      .mc_rq_vld        ( p_mc_rq_vld[g] ),
+      .mc_rq_cmd        ( p_mc_rq_cmd[g] ),
+      .mc_rq_scmd       ( p_mc_rq_scmd[g] ),
+      .mc_rq_vadr       ( p_mc_rq_vadr[g] ),
+      .mc_rq_size       ( p_mc_rq_size[g] ),
+      .mc_rq_rtnctl     ( p_mc_rq_rtnctl[g] ),
+      .mc_rq_data       ( p_mc_rq_data[g] ),
+      .mc_rq_flush      ( p_mc_rq_flush[g] ),
+      .mc_rq_stall      ( mc_rq_stall ),
+      .mc_rs_vld        ( mc_rs_vld ),
+      .mc_rs_cmd        ( mc_rs_cmd ),
+      .mc_rs_scmd       ( mc_rs_scmd ),
+      .mc_rs_rtnctl     ( mc_rs_rtnctl ),
+      .mc_rs_data       ( mc_rs_data ),
+      .mc_rs_stall      ( p_mc_rs_stall[g] ),
+      .addr             ( addr ),
+      .mem_gnt          ( mem_vgnt[g] )
+   );
+
+   assign event_valid = send_event_valid & send_vgnt[g];
+   assign rcv_vld[g] = new_event_ready;
+   assign ack = rcv_vgnt[g];
+   assign send_vld[g] = ready;
 end
 endgenerate
 
 wire prio_q_enq;
 /* Prevent enqueue of null message(equivalent to {1'b1, 19'b0}) */
-assign prio_q_enq = enq && (new_event[0 +: NB_LPID + TIME_WID + 1] != {1'b1, {NB_LPID + TIME_WID{1'b0}} }); 
+assign prio_q_enq = enq && (new_event[0 +: NB_LPID + TIME_WID + 1] != {1'b1, {NB_LPID + TIME_WID{1'b0}} });
 
 // Event queue instantiation
 prio_q #(.CMP_WID(TIME_WID)) queue(
-	.clk(clk),
-	.rst_n(rst_n),
-	.enq(prio_q_enq),
-	.deq( deq ),
-	.inp_data(new_event),
-	.out_data(queue_out),
+   .clk(clk),
+   .rst_n(rst_n),
+   .enq(prio_q_enq),
+   .deq( deq ),
+   .inp_data(new_event),
+   .out_data(queue_out),
    .full( q_full ),
    .empty( q_empty ),
-	.elem_cnt(event_count)
+   .elem_cnt(event_count)
 );
 
 // PRNG instantiation
@@ -351,7 +351,7 @@ LFSR prng (
    assign rcv_msg_vld = enq;
    assign msg = sent_msg_vld ? queue_out : (rcv_msg_vld ? new_event : 0);
    assign core_id = sent_msg_vld ? send_egnt : (rcv_msg_vld ? rcv_egnt : 0);
-      
+
    core_monitor #(
       .NUM_CORE(NUM_CORE),
       .NB_COREID( NB_COREID ),
@@ -380,73 +380,80 @@ LFSR prng (
  wire [TIME_WID-1:0] c_gvt;
 
  always @(posedge clk or negedge rst_n) begin
-	if(~rst_n) begin 
-		gvt <= 0;
-	end
-	else begin
-		gvt <= (r_state == RUNNING) ? c_gvt : gvt;
-	end
+   if(~rst_n) begin
+      gvt <= 0;
+   end
+   else begin
+      gvt <= (r_state == RUNNING) ? c_gvt : gvt;
+   end
  end
- 
- assign c_gvt = (min_time_vld && !q_empty) ? 
+
+ assign c_gvt = (min_time_vld && !q_empty) ?
                      (min_time < queue_out[0 +: TIME_WID] ? min_time : queue_out[0 +: TIME_WID]) :
                         (min_time_vld ? min_time : queue_out[0 +: TIME_WID]);
- 
- 
+
+
 `ifdef TRACE
- always @(posedge clk) begin : trace 
+ always @(posedge clk) begin : trace
     integer i;
-    
+
     $write("GVT:%5d ",gvt);
     for(i=0; i<NUM_CORE; i=i+1) begin
        if(send_egnt == i && deq) begin
           $write("|%1d->%-5d", send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID]);
           if(send_event_data[NB_LPID + TIME_WID]) $write("# ");
           else $write("> ");
-       end 
+       end
        else $write("|          ");
-       
+
        if(core_active[i]) begin
           $write("%1d", u_core_monitor.core_LP_id[i]);
           if(u_core_monitor.stall[i]) $write("*");
           else $write(" ");
-       end 
+       end
        else
           $write("x ");
-       
+
        if(rcv_egnt == i && enq)
           if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write(">>########|");
           else begin
              if(new_event[NB_LPID + TIME_WID]) $write("#");
              else $write(" ");
              $write(">%1d->%-5d|",new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID]);
-          end 
-       else $write("          |");    
+          end
+       else $write("          |");
     end
     $write("Q:%2d",event_count);if(event_count >0) $write("[%5d]",queue_out[0+:TIME_WID]);
     if(enq) $write("~H:%2d", new_event[MSG_WID - NB_HIST_DEPTH +: NB_HIST_DEPTH]);
     $write("\n");
-    
+
     if(event_count > 25) $display("** Warning: Event count = %2d", event_count);
- end 
+ end
 `endif
 
 `ifdef ANALYSIS
    reg [63:0] cycle;
       genvar k;
-      reg [15:0] memld[0:NUM_CORE-1];
-      reg [15:0] memst[0:NUM_CORE-1];
-      reg [15:0] total[0:NUM_CORE-1];
+      reg [31:0] stalled[0:NUM_CORE-1];
+      reg [31:0] arb_delay[0:NUM_CORE-1];
+      reg [31:0] memld[0:NUM_CORE-1];
+      reg [31:0] memst[0:NUM_CORE-1];
+      reg [31:0] total[0:NUM_CORE-1];
       wire [NUM_CORE-1:0] end_iter;
- 
-      for(k=0; k<NUM_CORE; k=k+1) begin :collect_stat 
+
+      for(k=0; k<NUM_CORE; k=k+1) begin :collect_stat
          always @(posedge clk) begin
-            if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.IDLE) begin
-               memld[k] <= 0;
-               memst[k] <= 0;
-               total[k] <= 0;
+           if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.IDLE) begin
+                stalled[k] <= 0;
+                  arb_delay[k] <= 0;
+                  memld[k] <= 0;
+                  memst[k] <= 0;
+                  total[k] <= 0;
             end
             else begin
+               if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.STALL) stalled[k] <= stalled[k] + 1;
+               if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.LD_MEM ||
+                     gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.ST_MEM) arb_delay[k] <= arb_delay[k] + 1;
                if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.LD_RTN) memld[k] <= memld[k] + 1;
                if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.ST_RTN) memst[k] <= memst[k] + 1;
                total[k] <= total[k] + 1;
@@ -455,49 +462,51 @@ LFSR prng (
          assign end_iter[k] = ((gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.WAIT)) &&
             gen_phold_core[k].phold_core_inst.ack && gen_phold_core[k].phold_core_inst.out_buf_empty;
       end
-      
- 
+
+
    always @(posedge clk) begin : analysis
       integer i;
       cycle = rst_n ? (cycle + 1) : 0;
-      
+
       // Transactions
       for(i=0; i<NUM_CORE; i=i+1) begin
        if(send_egnt == i && deq) begin
           $write("%8d: sent: %2d->%5d to core %2d", cycle, send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID], i);
           if(send_event_data[NB_LPID + TIME_WID]) $write(" (C)");
-          $write("GVT: %d", gvt);
+          $write(" GVT: %-5d", gvt);
           $write("\n");
-       end 
-       
+       end
+
        if(rcv_egnt == i && enq)
           if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write("%8d: null from core %2d\n", cycle, i);
           else begin
              $write("%8d: recv: %2d->%5d from core %2d", cycle, new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID], i);
              if(new_event[NB_LPID + TIME_WID]) $write(" (C)");
              if(end_iter[i])
-                  $write(" - memld: %d, memst: %d, total: %d", cycle, memld[i], memst[i], total[i]);
+                  $write(" - stall: %-5d, mem_rq: %-5d, memld: %-5d, memst: %-5d, total: %-8d\n",stalled[i], arb_delay[i], memld[i], memst[i], total[i]);
+             else
              $write("\n");
-          end 
+          end
       end
-                
+
+
       // Core status
-      $write("%8d: ", cycle);
-      for(i=0; i<NUM_CORE; i=i+1) begin
-       if(core_active[i]) begin
-          $write(" %2d ", u_core_monitor.core_LP_id[i]);
-          if(u_core_monitor.stall[i]) $write("*");
-       end 
-       else
-          $write("  x");
-      end
-      $write("\n");
+//      $write("%8d: ", cycle);
+//      for(i=0; i<NUM_CORE; i=i+1) begin
+//       if(core_active[i]) begin
+//          $write(" %2d ", u_core_monitor.core_LP_id[i]);
+//          if(u_core_monitor.stall[i]) $write("*");
+//       end
+//       else
+//          $write("  x");
+//      end
+//      $write("\n");
 
       // Memory requests
       if(|mem_rrarb.req) $display("%8d: mem: %b", cycle, mem_rrarb.req);
       if(|history_arbiter.req) $display("%8d: hist: %b", cycle, history_arbiter.req);
-      
+
    end
 `endif
- 
+
 endmodule
