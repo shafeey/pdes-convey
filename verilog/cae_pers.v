@@ -200,8 +200,8 @@ end */
 
 	wire 		phold_rtn_vld;
 	reg	[1:0]	c_state, r_state;
-	wire [13:0] phold_gvt;
-	reg [13:0] 	c_gvt;
+	wire [15:0] phold_gvt;
+	reg [15:0] 	c_gvt;
 	always @* begin
 		c_state = r_state;
 		c_gvt = r_gvt;
