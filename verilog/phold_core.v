@@ -456,7 +456,7 @@ module phold_core
    assign hist_buf_din = c_gen_next_evt ? 
                                  {new_event_target , new_event_time_offest[7:0], cur_event_type, cur_event_time}
                                  : hist_data_rd;
-   assign hist_buf_rd_en = r_hist_wr;
+   assign hist_buf_rd_en = r_hist_wr & hist_access_grant;
    
    fwft_fifo #(
       .WIDTH(32),
