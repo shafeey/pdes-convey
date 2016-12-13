@@ -440,6 +440,8 @@ LFSR prng (
       reg [31:0] memst[0:NUM_CORE-1];
       reg [31:0] total[0:NUM_CORE-1];
       wire [NUM_CORE-1:0] end_iter;
+      
+      wire [NUM_CORE-1:0] exec;
 
       for(k=0; k<NUM_CORE; k=k+1) begin :collect_stat
          always @(posedge clk) begin
@@ -461,6 +463,9 @@ LFSR prng (
          end
          assign end_iter[k] = ((gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.WAIT)) &&
             gen_phold_core[k].phold_core_inst.ack && gen_phold_core[k].phold_core_inst.out_buf_empty;
+         assign exec[k] = (gen_phold_core[k].phold_core_inst.c_state == gen_phold_core[k].phold_core_inst.READ_HIST) &&
+                              (gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.STALL ||
+                               gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.IDLE);
       end
 
 
@@ -470,25 +475,30 @@ LFSR prng (
 
       // Transactions
       for(i=0; i<NUM_CORE; i=i+1) begin
-       if(send_egnt == i && deq) begin
-          $write("%8d: sent: %2d->%5d to core %2d", cycle, send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID], i);
-          if(send_event_data[NB_LPID + TIME_WID]) $write(" (C)");
-          $write(" GVT: %-5d", gvt);
-          $write("\n");
-       end
-
-       if(rcv_egnt == i && enq)
-          if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write("%8d: null from core %2d\n", cycle, i);
-          else begin
-             $write("%8d: recv: %2d->%5d from core %2d", cycle, new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID], i);
-             if(new_event[NB_LPID + TIME_WID]) $write(" (C)");
-             if(end_iter[i])
+         if(send_egnt == i && deq) begin
+            $write("%8d: sent: %2d->%5d to core %2d", cycle, send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID], i);
+            if(send_event_data[NB_LPID + TIME_WID]) $write(" (C)");
+            $write(" GVT: %-5d", gvt);
+            $write("\n");
+         end
+   
+         if(rcv_egnt == i && enq)
+            if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write("%8d: null from core %2d\n", cycle, i);
+            else begin
+               $write("%8d: recv: %2d->%5d from core %2d", cycle, new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID], i);
+               if(new_event[NB_LPID + TIME_WID]) $write(" (C)");
+               if(end_iter[i])
                   $write(" - stall: %-5d, mem_rq: %-5d, memld: %-5d, memst: %-5d, total: %-8d\n",stalled[i], arb_delay[i], memld[i], memst[i], total[i]);
-             else
-             $write("\n");
-          end
+               else
+                  $write("\n");
+            end
+      
+         if(exec[i]) begin
+            $write("%8d: exec: %2d->%5d at core %2d\n", cycle, u_core_monitor.core_LP_id[i], u_core_monitor.core_times[i], i);
+         end
+       
       end
-
+          
 
       // Core status
 //      $write("%8d: ", cycle);
