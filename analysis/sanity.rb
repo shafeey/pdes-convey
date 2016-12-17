@@ -1,5 +1,14 @@
 filename = "../verilog/sim.txt"
 
+## Checks:
+# Queue has elements to dispatch
+# Dispatched event is valid
+# Event dispatched to unoccupied core
+#
+# GVT value is valid
+#
+# TODO: If events processing start in correct order in same LP
+
 ARGV.each do |a|
    filename = a
 end
@@ -73,12 +82,14 @@ NUM_LP = 32
 
 
 core_time = Array.new(NUM_CORE, -1)
+core_lp = Array.new(NUM_CORE, -1)
 gvt = 0
 
 event_q = Array.new(NUM_LP){Array.new}
+rollback_q = Array.new(NUM_LP){Array.new}
 
 send_match = /[\s\d]+: (\w+?): ([\s\d]+)->([\s\d]+) to core ([\s\d]+)( \(C\)|) GVT: ([\s\d]+)/
-recv_match  =/[\s\d]+: (\w+?): ([\s\d]+)->([\s\d]+) from core ([\s\d]+)/
+recv_match  =/[\s\d]+: (\w+?): ([\s\d]+)->([\s\d]+) from core ([\s\d]+)(\(C\)|)/
 recv_stat_match = /stall: ([\s\d]+), mem_rq: ([\s\d]+), memld: ([\s\d]+), memst: ([\s\d]+), total: ([\s\d]+)/
 null_match = /null from core ([\s\d]+)/
 exec_match = /[\s\d]+: exec: ([\s\d]+)->([\s\d]+) at core ([\s\d]+)/
@@ -109,6 +120,7 @@ File.foreach(filename) {|line|
 
       if core_time[coreid] < 0
         core_time[coreid] = time
+				core_lp[coreid] = target_lp
       else
         STDERR.puts "Sending event to occupied core" + line
         exit(1)
@@ -120,7 +132,6 @@ File.foreach(filename) {|line|
          STDERR.puts core_time.join(' ')
          exit(1)
       end
-
    end
 
    m = line.match(exec_match)
@@ -130,26 +141,49 @@ File.foreach(filename) {|line|
      # Causality check
      event_q[target_lp].select!{|x| x >= gvt}
      if (event_q[target_lp].size > 0 && event_q[target_lp].max > time)
-       puts line
-       #puts event_q[target_lp].select{|x| x > time}
+       # keep track of events that will later be rolled back
+			 rollback_q[target_lp] = rollback_q[target_lp] + event_q[target_lp].select{|x| x > time}
+			 # event_q[target_lp].select{|x| x > time}.each{|x| puts "need to rollback " + target_lp.to_s + "-->" + time.to_s} 
+       # puts event_q[target_lp].select{|x| x > time}
      end
      event_q[target_lp] << time
    end
 
-
+   # Update received events in queue
    m = line.match(recv_match)
    if m != nil
       target_lp = m[2].to_i
       time = m[3].to_i
       coreid = m[4].to_i
+			cancellation = m[5].match("C") != nil
+			# if cancellation == true
+			# 	# Received a rollback event, check if it was an expected one
+			# 	puts "received rollback " + target_lp.to_s + "-->" + time.to_s
+			# 	puts line
+			# end
+			
+			if core_lp[coreid] == target_lp && rollback_q[core_lp[coreid]].size > 0
+				if rollback_q[core_lp[coreid]].index(time) != nil
+					rollback_q[core_lp[coreid]].delete_at(rollback_q[core_lp[coreid]].index(time))
+					# puts "resend event " + target_lp.to_s + "-->" + time.to_s
+				end
+			end
 
       pq<<time
-      core_time[coreid] = -1
+
+			m2 = line.match(recv_stat_match)
+			# When it's the last recv statement from a core
+			if m2 != nil
+	      core_time[coreid] = -1
+				core_lp[coreid] = -1
+			end
    end
 
+   # Update core table when null event found
   m = line.match(null_match)
   if m!= nil
     coreid = m[1].to_i
     core_time[coreid] = -1
+		core_lp[coreid] = -1
   end
 }
