@@ -441,8 +441,11 @@ LFSR prng (
       reg [31:0] total[0:NUM_CORE-1];
       wire [NUM_CORE-1:0] end_iter;
       
-      wire [NUM_CORE-1:0] exec;
-
+      wire [3:0] state [0:NUM_CORE-1]; // Number of bits is state variable
+      reg [3:0] state_p[0:NUM_CORE-1];
+//      wire [NB_LPID-1:0] core_lp [NUM_CORE-1:0];
+//      wire [TIME_WID-1:0] core_time [NUM_CORE-1:0];
+ 
       for(k=0; k<NUM_CORE; k=k+1) begin :collect_stat
          always @(posedge clk) begin
            if(gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.IDLE) begin
@@ -463,9 +466,11 @@ LFSR prng (
          end
          assign end_iter[k] = ((gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.WAIT)) &&
             gen_phold_core[k].phold_core_inst.ack && gen_phold_core[k].phold_core_inst.out_buf_empty;
-         assign exec[k] = (gen_phold_core[k].phold_core_inst.c_state == gen_phold_core[k].phold_core_inst.READ_HIST) &&
-                              (gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.STALL ||
-                               gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.IDLE);
+            assign state[k] = gen_phold_core[k].phold_core_inst.r_state;
+//         assign core_lp[k] = u_core_monitor.
+//         assign exec[k] = (gen_phold_core[k].phold_core_inst.c_state == gen_phold_core[k].phold_core_inst.READ_HIST) &&
+//                              (gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.STALL ||
+//                               gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.IDLE);
       end
 
 
@@ -475,6 +480,8 @@ LFSR prng (
 
       // Transactions
       for(i=0; i<NUM_CORE; i=i+1) begin
+         state_p[i] <= state[i];
+         
          if(send_egnt == i && deq) begin
             $write("%8d: sent: %2d->%5d to core %2d", cycle, send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID], i);
             if(send_event_data[NB_LPID + TIME_WID]) $write(" (C)");
@@ -493,7 +500,7 @@ LFSR prng (
                   $write("\n");
             end
       
-         if(exec[i]) begin
+         if(state[i] == gen_phold_core[0].phold_core_inst.READ_HIST && state_p[i] != state[i]) begin
             $write("%8d: exec: %2d->%5d at core %2d\n", cycle, u_core_monitor.core_LP_id[i], u_core_monitor.core_times[i], i);
          end
        
