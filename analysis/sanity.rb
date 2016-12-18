@@ -86,16 +86,21 @@ core_lp = Array.new(NUM_CORE, -1)
 gvt = 0
 
 event_q = Array.new(NUM_LP){Array.new}
-rollback_q = Array.new(NUM_LP){Array.new}
+cancellation_q = Array.new(NUM_LP){Array.new}
+rollback_q = Array.new(NUM_CORE){Array.new}
 
 send_match = /[\s\d]+: (\w+?): ([\s\d]+)->([\s\d]+) to core ([\s\d]+)( \(C\)|) GVT: ([\s\d]+)/
 recv_match  =/[\s\d]+: (\w+?): ([\s\d]+)->([\s\d]+) from core ([\s\d]+)(\(C\)|)/
 recv_stat_match = /stall: ([\s\d]+), mem_rq: ([\s\d]+), memld: ([\s\d]+), memst: ([\s\d]+), total: ([\s\d]+)/
 null_match = /null from core ([\s\d]+)/
-exec_match = /[\s\d]+: exec: ([\s\d]+)->([\s\d]+) at core ([\s\d]+)/
+exec_match = /[\s\d]+: exec: ([\s\d]+)->([\s\d]+) at core ([\s\d]+)(\(C\)|)/
 
+cycle = 0
 # Open and read file
 File.foreach(filename) {|line|
+  m = line.match(/#\s+(\d+):/)
+ cycle = m[1].to_i if m != nil
+
   # Send events
    m = line.match(send_match)
    if m != nil
@@ -138,15 +143,43 @@ File.foreach(filename) {|line|
    if m!= nil
      target_lp = m[1].to_i
      time = m[2].to_i
+     coreid = m[3].to_i
+     cancellation = (m[4].match("C") != nil)
+
      # Causality check
      event_q[target_lp].select!{|x| x >= gvt}
-     if (event_q[target_lp].size > 0 && event_q[target_lp].max > time)
-       # keep track of events that will later be rolled back
-			 rollback_q[target_lp] = rollback_q[target_lp] + event_q[target_lp].select{|x| x > time}
-			 # event_q[target_lp].select{|x| x > time}.each{|x| puts "need to rollback " + target_lp.to_s + "-->" + time.to_s} 
-       # puts event_q[target_lp].select{|x| x > time}
+     if cancellation
+        # check for cancelled event in the event queue
+        pos = event_q[target_lp].find_index(time)
+        if pos != nil
+           # event found at queue, has been processed already
+           # remove it from the processed queue, to prevent generating rollback later
+           event_q[target_lp].delete_at(pos)
+        else
+           # keep a record, to prevent insertion into processed event queue
+           cancellation_q[target_lp].push(time)
+        end
+     else
+        if (event_q[target_lp].size > 0 && event_q[target_lp].max > time)
+          # keep track of events that will later be rolled back
+           # and remove them from processed list
+           # puts  event_q[target_lp].select{|x| x > time}
+             rollback_q[coreid] = event_q[target_lp].select{|x| x > time}
+             # event_q[target_lp].select{|x| x > time}.each{|x| puts "need to rollback " \
+             #                                        + target_lp.to_s + "-->" + x.to_s \
+             #                                        + " at core: " + coreid.to_s + " cycle: " + cycle.to_s} 
+             event_q[target_lp].delete_if{|x| x > time}
+               # puts           rollback_q[coreid]
+          # puts event_q[target_lp].select{|x| x > time}
+        end
+        if cancellation_q[target_lp].size > 0 && cancellation_q[target_lp].find_index(time) != nil
+           # event has a cancellation message waiting, don't insert into processed queue
+           # remove cancellation message from cancellation queue
+           cancellation_q[target_lp].delete_at(cancellation_q[target_lp].find_index(time))
+        else
+           event_q[target_lp] << time # insert processed event to queue
+        end
      end
-     event_q[target_lp] << time
    end
 
    # Update received events in queue
@@ -155,28 +188,34 @@ File.foreach(filename) {|line|
       target_lp = m[2].to_i
       time = m[3].to_i
       coreid = m[4].to_i
-			cancellation = m[5].match("C") != nil
+      cancellation = m[5].match("C") != nil
 			# if cancellation == true
 			# 	# Received a rollback event, check if it was an expected one
 			# 	puts "received rollback " + target_lp.to_s + "-->" + time.to_s
 			# 	puts line
 			# end
 			
-			if core_lp[coreid] == target_lp && rollback_q[core_lp[coreid]].size > 0
-				if rollback_q[core_lp[coreid]].index(time) != nil
-					rollback_q[core_lp[coreid]].delete_at(rollback_q[core_lp[coreid]].index(time))
-					# puts "resend event " + target_lp.to_s + "-->" + time.to_s
-				end
-			end
+      # If the event matches any item in rollback_q, it's an event that needs to be processed again
+      if core_lp[coreid] == target_lp && rollback_q[coreid].size > 0
+         if rollback_q[coreid].index(time) != nil
+            rollback_q[coreid].delete_at(rollback_q[coreid].index(time))
+            # puts "resend event " + target_lp.to_s + "-->" + time.to_s + " at core: " + coreid.to_s \
+            #    + " cycle: " + cycle.to_s
+         end
+      end
 
       pq<<time
 
-			m2 = line.match(recv_stat_match)
-			# When it's the last recv statement from a core
-			if m2 != nil
-	      core_time[coreid] = -1
-				core_lp[coreid] = -1
-			end
+      m2 = line.match(recv_stat_match)
+      if m2 != nil # When it's the last recv statement from a core
+         if rollback_q[coreid].size > 0 # Some rollback events weren't sent
+            puts core_lp[coreid].to_s + ":"
+            puts rollback_q[coreid]
+            STDERR.puts "Rollback events remain unsent: " + line
+         end
+         core_time[coreid] = -1
+            core_lp[coreid] = -1
+      end
    end
 
    # Update core table when null event found
