@@ -195,6 +195,7 @@ module phold_core
       c_gen_next_evt = 0;
       
       c_out_event_msg = r_out_event_msg;
+      c_out_buf_rd_en = 0;
       
 		case(r_state)
 		IDLE : begin
