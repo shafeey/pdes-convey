@@ -443,6 +443,7 @@ LFSR prng (
       
       wire [3:0] state [0:NUM_CORE-1]; // Number of bits is state variable
       reg [3:0] state_p[0:NUM_CORE-1];
+      wire [NUM_CORE-1:0] ev_type;
 //      wire [NB_LPID-1:0] core_lp [NUM_CORE-1:0];
 //      wire [TIME_WID-1:0] core_time [NUM_CORE-1:0];
  
@@ -471,6 +472,7 @@ LFSR prng (
 //         assign exec[k] = (gen_phold_core[k].phold_core_inst.c_state == gen_phold_core[k].phold_core_inst.READ_HIST) &&
 //                              (gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.STALL ||
 //                               gen_phold_core[k].phold_core_inst.r_state == gen_phold_core[k].phold_core_inst.IDLE);
+            assign ev_type[k] = gen_phold_core[k].phold_core_inst.cur_event_type;
       end
 
 
@@ -501,7 +503,9 @@ LFSR prng (
             end
       
          if(state[i] == gen_phold_core[0].phold_core_inst.READ_HIST && state_p[i] != state[i]) begin
-            $write("%8d: exec: %2d->%5d at core %2d\n", cycle, u_core_monitor.core_LP_id[i], u_core_monitor.core_times[i], i);
+            $write("%8d: exec: %2d->%5d at core %2d", cycle, u_core_monitor.core_LP_id[i], u_core_monitor.core_times[i], i);
+            if(ev_type[i]) $write(" (C)");
+            $write("\n");
          end
        
       end
