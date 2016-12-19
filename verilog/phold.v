@@ -134,8 +134,9 @@ wire [MSG_WID-1:0] new_event_data[NUM_CORE-1:0];
 wire  [MSG_WID-1:0] send_event_data;
 
 assign enq = (r_state == INIT) |
-            ((r_state == RUNNING) ? new_event_available : 1'b0) ;
-assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
+            ((r_state == RUNNING) ? (~q_full && new_event_available) : 1'b0) ;
+//assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
+assign deq = (r_state == RUNNING) ? (~enq && ~q_empty && core_available) : 0;
 assign new_event = (r_state == INIT) ? {init_counter[0 +: NB_LPID], {TIME_WID{1'b0}} }:
                   new_event_data[rcv_egnt];
 
@@ -315,7 +316,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
 
    assign event_valid = send_event_valid & send_vgnt[g];
    assign rcv_vld[g] = new_event_ready;
-   assign ack = rcv_vgnt[g];
+   assign ack = rcv_vgnt[g] & ~q_full;
    assign send_vld[g] = ready;
 end
 endgenerate
