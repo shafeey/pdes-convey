@@ -134,7 +134,9 @@ module phold_core
 	localparam WRITE_HIST = 4'd6;
 	localparam ST_MEM = 4'd7;
 	localparam ST_RTN = 4'd8;
+   localparam SEND_EVT = 4'd10;
 	localparam WAIT = 4'd9;
+   localparam WOC = 4'd11;
             
    localparam EVT_TYPE_WID = 1;
    localparam CANCEL_EVT = {EVT_TYPE_WID{1'b1}};
@@ -210,7 +212,7 @@ module phold_core
       
 		READ_HIST: begin
          if(hist_size == 0) begin
-            c_state = LD_MEM;
+            c_state = WOC;
          end 
          else begin
    			c_hist_rq = 1'b1;
@@ -222,7 +224,7 @@ module phold_core
                if(r_hist_cnt == hist_size - 1 ) begin
                   c_hist_cnt = 0;
                   c_hist_rq = 0;
-         			c_state = LD_MEM;
+         			c_state = WOC;
                   c_hist_filt_done = 1;
                end
             end
@@ -255,6 +257,10 @@ module phold_core
          end
       end
       
+      WOC: begin
+         c_state = PROC_EVT;
+      end
+            
       PROC_EVT: begin
          c_state = WRITE_HIST;
          c_gen_next_evt = 1;
@@ -267,7 +273,7 @@ module phold_core
             c_hist_cnt = 0;
             c_hist_wr = 0;
             c_hist_rq = 0;
-            c_state = ST_MEM;
+            c_state = SEND_EVT;
          end 
          else begin
             c_hist_rq = 1;
@@ -282,7 +288,7 @@ module phold_core
                   c_hist_cnt = 0;
                   c_hist_wr = 0;
                   c_hist_rq = 0;
-                  c_state = ST_MEM;
+                  c_state = SEND_EVT;
                end 
             end
          end
@@ -310,23 +316,28 @@ module phold_core
 			if(r_rtn1 && r_rtn2) begin
             c_rtn1 = 0;
             c_rtn2 = 0;
-				c_state = WAIT;
-            c_event_ready = 1;
-            if(r_discard_cur_evt) begin
-               if(r_gen_cancel) begin
-                  c_out_event_msg = cancel_evt_msg;
-               end
-               else
-                  c_out_event_msg = null_msg;
-            end
-            else begin
-               if(cur_event_type == CANCEL_EVT)
-                  c_out_event_msg = null_msg;
-               else
-                  c_out_event_msg = new_event_msg;
-            end 
+				c_state = SEND_EVT;
 			end
+      end
+      
+      SEND_EVT: begin
+         c_event_ready = 1;
+         if(r_discard_cur_evt) begin
+            if(r_gen_cancel) begin
+               c_out_event_msg = cancel_evt_msg;
+            end
+            else
+               c_out_event_msg = null_msg;
+         end
+         else begin
+            if(cur_event_type == CANCEL_EVT)
+               c_out_event_msg = null_msg;
+            else
+               c_out_event_msg = new_event_msg;
+         end 
+         c_state = WAIT;
 		end
+      
 		WAIT: begin // Wait for the generated event to be received
          c_event_ready = r_event_ready;
          c_out_event_msg = r_out_event_msg;
