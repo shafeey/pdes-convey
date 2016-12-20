@@ -76,7 +76,7 @@ pq = PriorityQueue.new
 
 
 NUM_CORE = 16
-NUM_LP = 32
+NUM_LP = 64
 #pq = Array.new(NUM_CORE, 0)
 #(0 ... NUM_CORE).each { |x| pq<<0 }
 
