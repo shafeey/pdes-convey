@@ -76,7 +76,7 @@ module prio_q_tb( );
    end
 
 // Instantiate module under test
-   prio_q DUT (
+   prio_q_mult DUT (
       .clk(clk),
       .rst_n(rst_n),
       .enq (enq),
