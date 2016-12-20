@@ -1,4 +1,4 @@
-filename = "../verilog/sim.txt"
+filename = "../verilog/sim.log"
 
 ## Checks:
 # Queue has elements to dispatch
@@ -221,8 +221,10 @@ File.foreach(filename) {|line|
    # Update core table when null event found
   m = line.match(null_match)
   if m!= nil
-    coreid = m[1].to_i
-    core_time[coreid] = -1
-		core_lp[coreid] = -1
+    if line.match(recv_stat_match) != nil
+      coreid = m[1].to_i
+      core_time[coreid] = -1
+		  core_lp[coreid] = -1
+    end
   end
 }

@@ -498,17 +498,19 @@ LFSR prng (
             $write("\n");
          end
    
-         if(rcv_egnt == i && enq)
-            if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write("%8d: null from core %2d\n", cycle, i);
+         if(rcv_egnt == i && enq) begin
+            if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write("%8d: null from core %2d", cycle, i);
             else begin
                $write("%8d: recv: %2d->%5d from core %2d", cycle, new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID], i);
                if(new_event[NB_LPID + TIME_WID]) $write(" (C)");
                $write(" Q:%-3d", event_count+1);
-               if(end_iter[i])
-                  $write(" - stall: %-5d, mem_rq: %-5d, memld: %-5d, memst: %-5d, total: %-8d\n",stalled[i], arb_delay[i], memld[i], memst[i], total[i]);
-               else
-                  $write("\n");
+               
             end
+            if(end_iter[i])
+               $write(" - stall: %-5d, mem_rq: %-5d, memld: %-5d, memst: %-5d, total: %-8d\n",stalled[i], arb_delay[i], memld[i], memst[i], total[i]);
+            else
+               $write("\n");
+         end 
       
          if(state[i] == gen_phold_core[0].phold_core_inst.READ_HIST && state_p[i] != state[i]) begin
             $write("%8d: exec: %2d->%5d at core %2d", cycle, u_core_monitor.core_LP_id[i], u_core_monitor.core_times[i], i);
