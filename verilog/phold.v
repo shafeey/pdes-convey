@@ -137,8 +137,8 @@ assign enq = (r_state == INIT) |
             ((r_state == RUNNING) ? (~q_full && new_event_available) : 1'b0) ;
 //assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
 assign deq = (r_state == RUNNING) ? (~enq && ~q_empty && core_available) : 0;
-assign new_event = (r_state == INIT) ? {init_counter[0 +: NB_LPID], {TIME_WID{1'b0}} }:
-                  new_event_data[rcv_egnt];
+
+assign new_event = (r_state == INIT) ? {init_counter[0 +: NB_LPID], {TIME_WID{1'b0}} } : new_event_data[rcv_egnt];
 
 
 /*
@@ -325,14 +325,19 @@ wire prio_q_enq;
 /* Prevent enqueue of null message(equivalent to {1'b1, 19'b0}) */
 assign prio_q_enq = enq && (new_event[0 +: NB_LPID + TIME_WID + 1] != {1'b1, {NB_LPID + TIME_WID{1'b0}} });
 
+// Shuffle position of Event type flag and flip the bit, so that it counts as smaller timestamp in queue
+wire  [MSG_WID-1:0] new_event_temp, queue_out_temp;
+assign new_event_temp = {new_event[TIME_WID +: NB_LPID], new_event[0 +: TIME_WID], ~new_event[TIME_WID + NB_LPID]};
+assign queue_out = {~queue_out_temp[0], queue_out_temp[TIME_WID+1 +: NB_LPID], queue_out_temp[1 +: TIME_WID]}; 
+
 // Event queue instantiation
-prio_q #(.CMP_WID(TIME_WID)) queue(
+prio_q_mult #(.CMP_WID(TIME_WID+1)) queue(
    .clk(clk),
    .rst_n(rst_n),
    .enq(prio_q_enq),
    .deq( deq ),
-   .inp_data(new_event),
-   .out_data(queue_out),
+   .inp_data(new_event_temp),
+   .out_data(queue_out_temp),
    .full( q_full ),
    .empty( q_empty ),
    .elem_cnt(event_count)
@@ -428,7 +433,7 @@ LFSR prng (
     if(enq) $write("~H:%2d", new_event[MSG_WID - NB_HIST_DEPTH +: NB_HIST_DEPTH]);
     $write("\n");
 
-    if(event_count > 25) $display("** Warning: Event count = %2d", event_count);
+    if(event_count > 56) $display("** Warning: Event count = %2d", event_count);
  end
 `endif
 
@@ -489,6 +494,7 @@ LFSR prng (
             $write("%8d: sent: %2d->%5d to core %2d", cycle, send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID], i);
             if(send_event_data[NB_LPID + TIME_WID]) $write(" (C)");
             $write(" GVT: %-5d", gvt);
+            $write(" Q:%-3d", event_count-1);
             $write("\n");
          end
    
@@ -497,6 +503,7 @@ LFSR prng (
             else begin
                $write("%8d: recv: %2d->%5d from core %2d", cycle, new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID], i);
                if(new_event[NB_LPID + TIME_WID]) $write(" (C)");
+               $write(" Q:%-3d", event_count+1);
                if(end_iter[i])
                   $write(" - stall: %-5d, mem_rq: %-5d, memld: %-5d, memst: %-5d, total: %-8d\n",stalled[i], arb_delay[i], memld[i], memst[i], total[i]);
                else
