@@ -8,7 +8,7 @@ module prio_q_mult #(
       input                deq,
       input  [WIDTH-1:0]   inp_data,
       output [WIDTH-1:0]   out_data,
-      output [DEPTH-1:0]   elem_cnt,
+      output [DEPTH:0]   elem_cnt,
       output               full,
       output               empty,
       input                rst_n
