@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
   
   // Allocate memory on coprocessor
   if (cny_cp_malloc)  {
-    cp_a1 = (uint64 *) (cny_cp_malloc)(size*8);
+    cp_a1 = (uint64 *) (cny_cp_malloc)(size*64);
 	printf("Address passed to CAE: %p\n", cp_a1);
   }
   else 
