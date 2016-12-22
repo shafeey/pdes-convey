@@ -3,7 +3,7 @@
 module phold_core
 	#(
 	parameter NB_LPID = 3, // Number of bits in ID. Number of Available LP < 2 ^ NB_LP
-	parameter NB_RND = 8,	// Number of bits in Random number generator
+	parameter NB_RND = 24,	// Number of bits in Random number generator
 	parameter NB_COREID = 2,	//  Number of bits in core id;
    parameter NUM_MEM_BYTE = 16,
    parameter MSG_WID = 32,
@@ -432,8 +432,8 @@ module phold_core
 						(r_state == WRITE_HIST ? counter + 1 : 3'b0) : 3'b0; 
 		
 		new_event_ready <= rst_n ? c_event_ready : 0;
-		new_event_time <= cur_event_time + 10 + rnd [4:0]; // Keep at least 10 units time gap between events
-		new_event_target <= rnd[NB_RND-NB_LPID +: NB_LPID]; 
+		new_event_time <= cur_event_time + 10 + rnd [0*(NB_RND/3) +: 6]; // Keep at least 10 units time gap between events
+		new_event_target <= rnd[1*(NB_RND/3) +: NB_LPID]; 
 		r_rq_vld <= rst_n ? c_rq_vld : 0; 
 		r_rq_cmd <= c_rq_cmd;
       r_rq_vadr <= c_rq_vadr;

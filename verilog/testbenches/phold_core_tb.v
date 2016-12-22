@@ -6,7 +6,7 @@ module phold_core_tb;
 
 // Parameter/Signal Declarations
 parameter NIDB             = 3;
-parameter NRB              = 8;
+parameter NRB              = 24;
 parameter NCB              = 2;
 parameter MC_RTNCTL_WIDTH  = 32;
 parameter MSG_WID = 32;

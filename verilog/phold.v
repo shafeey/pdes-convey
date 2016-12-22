@@ -38,6 +38,8 @@ module phold #(
    localparam HIST_WID = 32;
    localparam NB_HIST_DEPTH = 4; // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
    localparam NB_HIST_ADDR = NB_HIST_DEPTH + NB_LPID;  // Bits to address the whole history memory, whole size = NUM_LP * (2**NB_HIST_DEPTH)
+   
+   localparam NB_RAND = 24;
 
    localparam NUM_MEM_BYTE = 16;
 
@@ -231,7 +233,7 @@ hist_table #(
       .douta(hist_data_rd)  // output [31 : 0] douta
    );
 
-wire [7:0] random_in; // TODO: Parameterize when PRNG needs any change
+wire [NB_RAND-1:0] random_in; 
 
 wire [NUM_CORE-1:0] p_mc_rq_vld;
 wire [2:0] p_mc_rq_cmd[NUM_CORE-1:0];
@@ -344,7 +346,7 @@ prio_q_mult #(.CMP_WID(TIME_WID+1)) queue(
 );
 
 // PRNG instantiation
-wire [15:0] seed = 16'hffff; // Initialize PRNG with a seed
+wire [47:0] seed = 48'h66668888aaaa; // Initialize PRNG with a seed
 LFSR prng (
    .clk   ( clk ),
    .rst_n ( rst_n ),
