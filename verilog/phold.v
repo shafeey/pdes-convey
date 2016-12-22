@@ -41,7 +41,7 @@ module phold #(
    
    localparam NB_RAND = 24;
 
-   localparam NUM_MEM_BYTE = 16;
+   localparam NUM_MEM_BYTE = 8;
 
    wire [MSG_WID-1:0] msg;
    wire sent_msg_vld;

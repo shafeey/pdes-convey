@@ -5,7 +5,7 @@ module phold_core
 	parameter NB_LPID = 3, // Number of bits in ID. Number of Available LP < 2 ^ NB_LP
 	parameter NB_RND = 24,	// Number of bits in Random number generator
 	parameter NB_COREID = 2,	//  Number of bits in core id;
-   parameter NUM_MEM_BYTE = 16,
+   parameter NUM_MEM_BYTE = 8,
    parameter MSG_WID = 32,
    parameter TIME_WID = 16,
    parameter HIST_WID = 32,
@@ -88,8 +88,6 @@ module phold_core
    reg  [2:0]   r_rs_cmd;
    reg  [31:0]  r_rs_rtnctl;
    reg  [63:0]  r_rs_data;
-   reg          r_hold;
-   reg          c_hold;
    reg          r_rtn1;
    reg          r_rtn2;
    reg          c_rtn1;
@@ -104,8 +102,8 @@ module phold_core
    // MC interface
 	assign mc_rq_vld = r_rq_vld;
 	assign mc_rq_cmd = r_rq_cmd;
-	assign mc_rq_rtnctl ={ {(32-NB_COREID-1){1'b0}},r_hold, core_id}; // NOTE: verify number of preceding zeros when making adjustment
-	assign mc_rq_data = {r_hold, 13'b0, core_id, 13'b0, cur_lp_id, 16'b0, cur_event_time}; // A test data pattern, of no significance
+	assign mc_rq_rtnctl ={{(32-NB_COREID){1'b0}}, core_id}; // NOTE: verify number of preceding zeros when making adjustment
+	assign mc_rq_data = { {(16-NB_COREID){1'b0}}, core_id, {(16-NB_LPID){1'b0}}, cur_lp_id, 16'b0, cur_event_time}; // A test data pattern, of no significance
 	assign mc_rq_vadr = r_rq_vadr;
 	assign mc_rq_scmd = 4'h0;
 	assign mc_rq_size = MC_SIZE_QUAD;	// all requests are 8-byte
@@ -149,7 +147,6 @@ module phold_core
 	reg c_event_ready, r_event_ready;
 	wire finished, read_hist_finished;
 	wire ld_rtn_vld, st_rtn_vld;
-	wire ld_rtn_vld2, st_rtn_vld2;
    wire rand_delay_reached;
    
    assign active = (r_state != IDLE) && rst_n;
@@ -185,7 +182,6 @@ module phold_core
 		c_event_ready = new_event_ready;
 		c_rq_vld = 1'b0;
 		c_rq_cmd = AEMC_CMD_IDLE;
-      c_hold = 0;
       c_rtn1 = r_rtn1;
       c_rtn2 = r_rtn2;
       
@@ -225,7 +221,7 @@ module phold_core
                if(r_hist_cnt == hist_size - 1 ) begin
                   c_hist_cnt = 0;
                   c_hist_rq = 0;
-         			c_state = PROC_DELAY;
+         			c_state = LD_MEM;
                   c_hist_filt_done = 1;
                end
             end
@@ -239,22 +235,13 @@ module phold_core
 				c_rq_cmd = AEMC_CMD_RD8;
 			end
 			if(mem_gnt) begin
-            c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE + 8;
-            c_hold = 1;
-            if(r_hold) begin
-               c_state = LD_RTN;
-               c_rq_vld = 1'b0;
-            end 
+            c_state = LD_RTN;
+            c_rq_vld = 1'b0;
 			end
 		end
 		LD_RTN: begin
-			if(ld_rtn_vld) c_rtn1 = 1;
-         if(ld_rtn_vld2) c_rtn2 = 1;
-         
-         if(r_rtn1 && r_rtn2) begin
-            c_state = GEN_EVT;
-            c_rtn1 = 0;
-            c_rtn2 = 0;
+			if(ld_rtn_vld) begin
+            c_state = PROC_DELAY;
          end
       end
       
@@ -290,7 +277,7 @@ module phold_core
                   c_hist_cnt = 0;
                   c_hist_wr = 0;
                   c_hist_rq = 0;
-                  c_state = SEND_EVT;
+                  c_state = ST_MEM;
                end 
             end
          end
@@ -303,21 +290,12 @@ module phold_core
 				c_rq_cmd = AEMC_CMD_WR8;
 			end
 			if(mem_gnt) begin
-            c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE + 8;
-            c_hold = 1;
-            if(r_hold) begin
-   				c_state = ST_RTN;
-   				c_rq_vld = 0;
-            end
+				c_state = ST_RTN;
+				c_rq_vld = 0;
 			end
 		end
 		ST_RTN: begin
-         if(st_rtn_vld) c_rtn1 = 1;
-         if(st_rtn_vld2) c_rtn2 = 1;
-         
-			if(r_rtn1 && r_rtn2) begin
-            c_rtn1 = 0;
-            c_rtn2 = 0;
+         if(st_rtn_vld) begin
 				c_state = SEND_EVT;
 			end
       end
@@ -404,15 +382,9 @@ module phold_core
    
 	assign ready = (r_state == IDLE);
 	assign ld_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_RD8_DATA) &&
-							(r_rs_rtnctl[NB_COREID:0] == { 1'b0, core_id});
+							(r_rs_rtnctl[0 +: NB_COREID] ==  core_id);
 	assign st_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_WR_CMP) &&
-							(r_rs_rtnctl[NB_COREID:0] == { 1'b0, core_id});
-							
-	assign ld_rtn_vld2 = r_rs_vld && (r_rs_cmd == MCAE_CMD_RD8_DATA) &&
-							(r_rs_rtnctl[NB_COREID:0] == { 1'b1, core_id});
-	assign st_rtn_vld2 = r_rs_vld && (r_rs_cmd == MCAE_CMD_WR_CMP) &&
-							(r_rs_rtnctl[NB_COREID:0] == { 1'b1, core_id});
-	
+							(r_rs_rtnctl[0 +: NB_COREID] == core_id);
 							
 	always @(posedge clk) begin
       r_rs_vld  <= (~rst_n) ? 1'b0 : mc_rs_vld;
@@ -446,11 +418,9 @@ module phold_core
 		r_rq_vld <= rst_n ? c_rq_vld : 0; 
 		r_rq_cmd <= c_rq_cmd;
       r_rq_vadr <= c_rq_vadr;
-      r_hold <= rst_n ? c_hold : 0;
       r_rtn1 <= rst_n ? c_rtn1 : 0;
       r_rtn2 <= rst_n ? c_rtn2 : 0;
       rtn_data[63:0] <= rst_n ? (ld_rtn_vld ? r_rs_data : rtn_data[63:0]) : 0;
-      rtn_data[127:64] <= rst_n ? (ld_rtn_vld2 ? r_rs_data : rtn_data[127:64]) : 0;
 	end
 	
    always @(posedge clk) begin 
