@@ -130,13 +130,13 @@ module phold_core
    localparam READ_HIST = 4'd2;
    localparam LD_MEM = 4'd3;
 	localparam LD_RTN = 4'd4;
-   localparam PROC_EVT = 4'd5;
+   localparam GEN_EVT = 4'd5;
 	localparam WRITE_HIST = 4'd6;
 	localparam ST_MEM = 4'd7;
 	localparam ST_RTN = 4'd8;
    localparam SEND_EVT = 4'd10;
 	localparam WAIT = 4'd9;
-   localparam WOC = 4'd11;
+   localparam PROC_DELAY = 4'd11;
             
    localparam EVT_TYPE_WID = 1;
    localparam CANCEL_EVT = {EVT_TYPE_WID{1'b1}};
@@ -150,6 +150,7 @@ module phold_core
 	wire finished, read_hist_finished;
 	wire ld_rtn_vld, st_rtn_vld;
 	wire ld_rtn_vld2, st_rtn_vld2;
+   wire rand_delay_reached;
    
    assign active = (r_state != IDLE) && rst_n;
    
@@ -212,7 +213,7 @@ module phold_core
       
 		READ_HIST: begin
          if(hist_size == 0) begin
-            c_state = WOC;
+            c_state = PROC_DELAY;
          end 
          else begin
    			c_hist_rq = 1'b1;
@@ -224,7 +225,7 @@ module phold_core
                if(r_hist_cnt == hist_size - 1 ) begin
                   c_hist_cnt = 0;
                   c_hist_rq = 0;
-         			c_state = WOC;
+         			c_state = PROC_DELAY;
                   c_hist_filt_done = 1;
                end
             end
@@ -251,17 +252,18 @@ module phold_core
          if(ld_rtn_vld2) c_rtn2 = 1;
          
          if(r_rtn1 && r_rtn2) begin
-            c_state = PROC_EVT;
+            c_state = GEN_EVT;
             c_rtn1 = 0;
             c_rtn2 = 0;
          end
       end
       
-      WOC: begin
-         c_state = PROC_EVT;
+      PROC_DELAY: begin
+         if(rand_delay_reached)
+            c_state = GEN_EVT;
       end
             
-      PROC_EVT: begin
+      GEN_EVT: begin
          c_state = WRITE_HIST;
          c_gen_next_evt = 1;
          if(r_discard_cur_evt)
@@ -423,7 +425,14 @@ module phold_core
                               (c_gen_next_evt ? hist_buf_ret_size + 1 : 
                                  (r_hist_filt_done ? hist_buf_cnt : hist_buf_ret_size));
       
-    end
+   end
+   
+   // random delay generation
+   reg [7:0] delay_counter;
+   always @(posedge clk) begin 
+      delay_counter <= (r_state == PROC_DELAY) ? delay_counter + 1 : 0; 
+   end
+   assign rand_delay_reached = (delay_counter >= rnd[2*(NB_RND/3) +: 4]);
 	
 	reg [2:0] counter;
 	always@(posedge clk) begin
@@ -543,7 +552,6 @@ module phold_core
       r_gen_cancel <= (r_state == IDLE) ? 0 : c_gen_cancel;
    end 
    
-   //TODO: parameterize offset
    wire out_buf_wr_en;
    assign out_buf_wr_en = c_gen_rollback;
    assign out_buf_din = hist_data_rd;
