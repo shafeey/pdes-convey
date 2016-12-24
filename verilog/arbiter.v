@@ -12,7 +12,7 @@ module arbiter#(
    input       clk,
    input       reset
    );
-   localparam PIPE = 0; // Pipeline stages: 0~2
+   localparam PIPE = 1; // Pipeline stages: 0~2
    
    reg [$clog2(NR)-1:0] last_gnt;
    reg       last_vld;
