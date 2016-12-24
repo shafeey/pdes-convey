@@ -196,6 +196,9 @@ module phold_core
       c_out_event_msg = r_out_event_msg;
       c_out_buf_rd_en = 0;
       
+      c_hist_addr = 0;
+      c_rq_vadr = 0;
+      
 		case(r_state)
 		IDLE : begin
 			if(event_valid) begin
