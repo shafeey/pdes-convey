@@ -61,6 +61,8 @@ module prio_q_tb( );
             enq, deq, inp_data);
          if(!scan_file) $display("Error reading data file");
          @(posedge clk);
+            enq = 0; deq = 0; inp_data = 0;
+         @(posedge clk);
       end
 
       done      = 1'b1; // Finished reading all data
@@ -68,7 +70,7 @@ module prio_q_tb( );
    end
 
    always @(posedge clk) begin
-      if(count == 32)
+      if(count == 16)
          $display("Error: Invalid number of elements in the queue");
       if(deq && inp_data != out_data)
          $display("Error: Cycle %d, Count %d, Expected %d, Actual %d",
@@ -76,7 +78,7 @@ module prio_q_tb( );
    end
 
 // Instantiate module under test
-   prio_q_mult DUT (
+   pheap DUT (
       .clk(clk),
       .rst_n(rst_n),
       .enq (enq),
