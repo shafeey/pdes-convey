@@ -95,7 +95,7 @@ module pheap #(
    end
    
    wire [WIDTH-1:0] cur_val3;
-   assign cur_val3 = (index2[0] == LEFT) ? L1_left[index2[3:1]] : L1_right[index2[3:1]];
+   assign cur_val3 = (index3[0] == LEFT) ? L2_left[index3[3:1]] : L2_right[index3[3:1]];
    always @* begin : L2_control
       enque(trans_val[2], cur_val3, L2_occupied[index3], operation[2], L2_cap[index3], L3_cap[{index3, 1'b0}],
             L3_left[index3], L3_occupied[{index3, 1'b0}], L3_right[index3], L3_occupied[{index3, 1'b1}],
