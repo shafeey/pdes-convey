@@ -164,6 +164,8 @@ module pheap #(
          integer i;
          for(i=0; i<2; i=i+1) begin
             L1_cap[i] <= 31;
+         end
+         for(i=0; i<1; i=i+1) begin
             L1_left_occupied[i] <= 0;
             L1_right_occupied[i] <= 0;
          end
@@ -192,9 +194,11 @@ module pheap #(
          integer i;
          for(i=0; i<4; i=i+1) begin
             L2_cap[i] <= 15;
+         end
+         for(i=0; i<2; i=i+1) begin
             L2_left_occupied[i] <= 0;
             L2_right_occupied[i] <= 0;
-         end
+         end         
       end
       else begin
          if(operation[2] != NOP) begin
@@ -220,6 +224,8 @@ module pheap #(
          integer i;
          for(i=0; i<8; i=i+1) begin
             L3_cap[i] <= 7;
+         end
+         for(i=0; i<4; i=i+1) begin
             L3_left_occupied[i] <= 0;
             L3_right_occupied[i] <= 0;
          end
@@ -248,6 +254,8 @@ module pheap #(
          integer i;
          for(i=0; i<16; i=i+1) begin
             L4_cap[i] <= 3;
+         end
+         for(i=0; i<8; i=i+1) begin
             L4_left_occupied[i] <= 0;
             L4_right_occupied[i] <= 0;
          end
@@ -275,6 +283,8 @@ module pheap #(
          integer i;
          for(i=0; i<32; i=i+1) begin
             L5_cap[i] <= 1;
+         end
+         for(i=0; i<16; i=i+1) begin
             L5_left_occupied[i] <= 0;
             L5_right_occupied[i] <= 0;
          end
