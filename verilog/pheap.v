@@ -334,7 +334,7 @@ module pheap #(
             
             if(occupied) begin
                next_op = ENQ;
-               if(val < cur_val) begin
+               if(val[0 +: CMP_WID] < cur_val[0 +: CMP_WID]) begin
                   next_val = val;
                   next_trans_val = cur_val;
                end
@@ -347,7 +347,7 @@ module pheap #(
             next_capacity = cur_capacity + 1;
             next_op = DEQ;
             if(child_left_vld && child_right_vld) begin
-               if(child_left < child_right) begin
+               if(child_left[0 +: CMP_WID] < child_right[0 +: CMP_WID]) begin
                   next_val = child_left;
                   side = LEFT;
                end
