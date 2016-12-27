@@ -1,7 +1,7 @@
 module pheap #(
       parameter WIDTH = 32,   // Width of data ports
       parameter CMP_WID = 32, // Only compare CMP_WID LSBs to sort heap
-      parameter DEPTH = 5     // Depth of heap, heap size = (2^DEPTH)-1 = 31
+      parameter DEPTH = 6     // Depth of heap, heap size = (2^DEPTH)-1 = 31
    )(
       input                clk,
       input                enq,
@@ -20,6 +20,7 @@ module pheap #(
    wire [DEPTH-1:0] index2;
    wire [DEPTH-1:0] index3;
    wire [DEPTH-1:0] index4;
+   wire [DEPTH-1:0] index5;
    
    reg [DEPTH-1:0] trans_idx[0:DEPTH-1];
    reg [WIDTH-1:0] trans_val[0:DEPTH-1];
@@ -31,35 +32,38 @@ module pheap #(
    
    reg [1:0] operation[0:DEPTH-1];
    
-   reg [DEPTH-1:0] L0_cap, L1_cap[0:1], L2_cap[0:3], L3_cap[0:7], L4_cap[0:15];
+   reg [DEPTH-1:0] L0_cap, L1_cap[0:1], L2_cap[0:3], L3_cap[0:7], L4_cap[0:15], L5_cap[0:31];
    reg L0_occupied;
    reg [0:0] L1_left_occupied, L1_right_occupied;
    reg [1:0] L2_left_occupied, L2_right_occupied;
    reg [3:0] L3_left_occupied, L3_right_occupied;
    reg [7:0] L4_left_occupied, L4_right_occupied;
+   reg [15:0] L5_left_occupied, L5_right_occupied;
    
    reg [WIDTH-1:0] L0;
    reg [WIDTH-1:0] L1_left[0:0], L1_right[0:0];
    reg [WIDTH-1:0] L2_left[0:1], L2_right[0:1];
    reg [WIDTH-1:0] L3_left[0:3], L3_right[0:3];
    reg [WIDTH-1:0] L4_left[0:7], L4_right[0:7];
+   reg [WIDTH-1:0] L5_left[0:15], L5_right[0:15];
    
-   reg [WIDTH-1:0] next_val0, next_val1, next_val2, next_val3, next_val4;
-   reg c_occupied0, c_occupied1, c_occupied2, c_occupied3, c_occupied4;
-   reg [DEPTH-1:0] next_cap0, next_cap1, next_cap2, next_cap3, next_cap4;     
-   reg next_side1, next_side2, next_side3, next_side4, next_side5;
-   reg [1:0] next_op1, next_op2, next_op3, next_op4, next_op5;
+   reg [WIDTH-1:0] next_val0, next_val1, next_val2, next_val3, next_val4, next_val5;
+   reg c_occupied0, c_occupied1, c_occupied2, c_occupied3, c_occupied4, c_occupied5;
+   reg [DEPTH-1:0] next_cap0, next_cap1, next_cap2, next_cap3, next_cap4, next_cap5;     
+   reg next_side1, next_side2, next_side3, next_side4, next_side5, next_side6;
+   reg [1:0] next_op1, next_op2, next_op3, next_op4, next_op5, next_op6;
    
    localparam LEFT = 0;
    localparam RIGHT = 1;
    
-   reg [WIDTH-1:0] next_trans_val1, next_trans_val2, next_trans_val3, next_trans_val4, next_trans_val5;
+   reg [WIDTH-1:0] next_trans_val1, next_trans_val2, next_trans_val3, next_trans_val4, next_trans_val5, next_trans_val6;
    
    assign index0 = 0;
    assign index1 = trans_idx[1];
    assign index2 = trans_idx[2];
    assign index3 = trans_idx[3];
    assign index4 = trans_idx[4];
+   assign index5 = trans_idx[5];
    
    assign out_data = L0;
    
@@ -126,11 +130,21 @@ module pheap #(
    wire cur_occupied4;
    assign cur_occupied4 = (index4[0] == LEFT) ? L4_left_occupied[index4[DEPTH-1:1]] : L4_right_occupied[index4[DEPTH-1:1]];
    always @* begin : L4_control
-      enque(trans_val[4], cur_val4, cur_occupied4, operation[4], L4_cap[index4], 0,
-            0, 0, 0, 0,
+      enque(trans_val[4], cur_val4, cur_occupied4, operation[4], L4_cap[index4], L5_cap[{index4, 1'b0}],
+            L5_left[index4], L5_left_occupied[index4], L5_right[index4], L5_right_occupied[index4],
             next_val4, c_occupied4, next_cap4, next_trans_val5, next_op5, next_side5);
    end
-   
+         
+   wire [WIDTH-1:0] cur_val5;
+   assign cur_val5 = (index5[0] == LEFT) ? L5_left[index5[DEPTH-1:1]] : L5_right[index5[DEPTH-1:1]];
+   wire cur_occupied5;
+   assign cur_occupied5 = (index5[0] == LEFT) ? L5_left_occupied[index5[DEPTH-1:1]] : L5_right_occupied[index5[DEPTH-1:1]];
+   always @* begin : L5_control
+      enque(trans_val[5], cur_val5, cur_occupied5, operation[5], L5_cap[index5], 0,
+            0, 0, 0, 0,
+            next_val5, c_occupied5, next_cap5, next_trans_val6, next_op6, next_side6);
+   end
+
    always@(posedge clk) begin
       if(~rst_n) begin : reset0
          L0_occupied <= 0;
@@ -149,7 +163,7 @@ module pheap #(
       if(~rst_n) begin : reset1
          integer i;
          for(i=0; i<2; i=i+1) begin
-            L1_cap[i] <= 15;
+            L1_cap[i] <= 31;
             L1_left_occupied[i] <= 0;
             L1_right_occupied[i] <= 0;
          end
@@ -177,7 +191,7 @@ module pheap #(
       if(~rst_n) begin : reset2
          integer i;
          for(i=0; i<4; i=i+1) begin
-            L2_cap[i] <= 7;
+            L2_cap[i] <= 15;
             L2_left_occupied[i] <= 0;
             L2_right_occupied[i] <= 0;
          end
@@ -205,7 +219,7 @@ module pheap #(
       if(~rst_n) begin : reset3
          integer i;
          for(i=0; i<8; i=i+1) begin
-            L3_cap[i] <= 3;
+            L3_cap[i] <= 7;
             L3_left_occupied[i] <= 0;
             L3_right_occupied[i] <= 0;
          end
@@ -233,7 +247,7 @@ module pheap #(
       if(~rst_n) begin : reset4
          integer i;
          for(i=0; i<16; i=i+1) begin
-            L4_cap[i] <= 1;
+            L4_cap[i] <= 3;
             L4_left_occupied[i] <= 0;
             L4_right_occupied[i] <= 0;
          end
@@ -250,9 +264,36 @@ module pheap #(
                L4_right_occupied[index4[DEPTH-1:1]] <= c_occupied4;
             end 
          end
+         trans_val[5] <= next_trans_val5;
+         trans_idx[5] <= {index4[DEPTH-2:0], next_side5};
+         operation[5] <= next_op5;
       end
    end
-   
+            
+   always@(posedge clk) begin
+      if(~rst_n) begin : reset5
+         integer i;
+         for(i=0; i<32; i=i+1) begin
+            L5_cap[i] <= 1;
+            L5_left_occupied[i] <= 0;
+            L5_right_occupied[i] <= 0;
+         end
+      end
+      else begin
+         if(operation[5] != NOP) begin
+            L5_cap[index5] <= next_cap5;
+            if(index5[0] == LEFT) begin
+               L5_left[index5[DEPTH-1:1]] <= next_val5;
+               L5_left_occupied[index5[DEPTH-1:1]] <= c_occupied5;
+            end 
+            else begin
+               L5_right[index5[DEPTH-1:1]] <= next_val5;
+               L5_right_occupied[index5[DEPTH-1:1]] <= c_occupied5;
+            end 
+         end
+      end
+   end
+
    reg state;
    always @(posedge clk) begin
       state <= rst_n ? enq : 0;

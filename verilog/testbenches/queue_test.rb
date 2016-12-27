@@ -62,13 +62,13 @@ pattern = ""
 
 # Add manual test pattern here: 1 = ENQ, 2 = DEQ, 0= NOP
 #pattern = "11111111111111111111111111111110000002222222222222222222222222222222"
-#pattern = "111111111000000222222222" 
+#pattern = "111111111111111111111111111111111111100000000022222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222" 
 
 count = 0;
 iter = 0;
 s=0;
 pattern = pattern.split("")
-iter_max = pattern.size > 0 ? pattern.size : 100000
+iter_max = pattern.size > 0 ? pattern.size : 1000000
 File.open("prio_q_test_data.dat","w"){ |f|
     while(iter < iter_max) do
 	iter = iter + 1
@@ -76,7 +76,7 @@ File.open("prio_q_test_data.dat","w"){ |f|
 	s = (pattern.size >0) ? pattern.shift.to_i : prng.rand(3)	
 	case s
 	when 1
-	    if(count<31) then
+	    if(count<63) then
 		a = prng.rand(255)
 		f.puts "1, 0, " + a.to_s
 		pq<<a

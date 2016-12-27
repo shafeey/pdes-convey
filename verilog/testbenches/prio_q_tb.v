@@ -2,7 +2,7 @@
 
 //`define PRIO_Q_DUMP_HEAP_CONTENTS // Writes heap values to file for debug
 `define DWIDTH 16 // Width of DATA BUS
-`define HDEPTH 5  // Depth of heap
+`define HDEPTH 6  // Depth of heap
 
 module prio_q_tb( );
 
@@ -70,7 +70,7 @@ module prio_q_tb( );
    end
 
    always @(posedge clk) begin
-      if(count == 32)
+      if(count == 64)
          $display("Error: Invalid number of elements in the queue");
       if(deq && inp_data != out_data)
          $display("Error: Cycle %d, Count %d, Expected %d, Actual %d",
