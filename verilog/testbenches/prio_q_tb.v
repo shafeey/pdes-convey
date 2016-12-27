@@ -70,7 +70,7 @@ module prio_q_tb( );
    end
 
    always @(posedge clk) begin
-      if(count == 16)
+      if(count == 32)
          $display("Error: Invalid number of elements in the queue");
       if(deq && inp_data != out_data)
          $display("Error: Cycle %d, Count %d, Expected %d, Actual %d",
@@ -87,6 +87,7 @@ module prio_q_tb( );
       .out_data(out_data),
       .full(),
       .empty(),
+      .ready(),
       .elem_cnt(count)
    );
 
