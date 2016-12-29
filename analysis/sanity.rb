@@ -228,3 +228,5 @@ File.foreach(filename) {|line|
     end
   end
 }
+
+puts "... Simulation output verification complete ..."
