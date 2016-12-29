@@ -135,10 +135,11 @@ wire [NUM_CORE-1:0] rcv_vgnt, send_vgnt, rcv_vld, send_vld;
 wire [MSG_WID-1:0] new_event_data[NUM_CORE-1:0];
 wire  [MSG_WID-1:0] send_event_data;
 
-assign enq = (r_state == INIT) |
-            ((r_state == RUNNING) ? (~q_full && new_event_available) : 1'b0) ;
+reg queue_busy;
+assign enq = queue_busy ? 0 : 
+            ( (r_state == INIT) | ((r_state == RUNNING) ? (~q_full && new_event_available) : 1'b0) );
 //assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
-assign deq = (r_state == RUNNING) ? (~enq && ~q_empty && core_available) : 0;
+assign deq = queue_busy ? 0 : ( (r_state == RUNNING) ? (~enq && ~q_empty && core_available) : 0);
 
 assign new_event = (r_state == INIT) ? {init_counter[0 +: NB_LPID], {TIME_WID{1'b0}} } : new_event_data[rcv_egnt];
 
@@ -316,9 +317,9 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .mem_gnt          ( mem_vgnt[g] )
    );
 
-   assign event_valid = send_event_valid & send_vgnt[g];
+   assign event_valid = send_event_valid & send_vgnt[g] & ~queue_busy;
    assign rcv_vld[g] = new_event_ready;
-   assign ack = rcv_vgnt[g] & ~q_full;
+   assign ack = rcv_vgnt[g] & ~q_full & ~queue_busy;
    assign send_vld[g] = ready;
 end
 endgenerate
@@ -332,8 +333,12 @@ wire  [MSG_WID-1:0] new_event_temp, queue_out_temp;
 assign new_event_temp = {new_event[TIME_WID +: NB_LPID], new_event[0 +: TIME_WID], ~new_event[TIME_WID + NB_LPID]};
 assign queue_out = {~queue_out_temp[0], queue_out_temp[TIME_WID+1 +: NB_LPID], queue_out_temp[1 +: TIME_WID]}; 
 
+always @(posedge clk) begin
+   queue_busy <= rst_n ? (enq | deq) : 0;
+end
+
 // Event queue instantiation
-prio_q_mult #(.CMP_WID(TIME_WID+1)) queue(
+pheap #(.CMP_WID(TIME_WID+1)) queue(
    .clk(clk),
    .rst_n(rst_n),
    .enq(prio_q_enq),
