@@ -1,4 +1,4 @@
-`timescale 1ns/100ps
+`timescale 1ns/10ps
 module pheap_tb;
 
    localparam WIDTH   = 32;

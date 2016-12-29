@@ -11,7 +11,6 @@ module pheap #(
       output [DEPTH-1:0]   elem_cnt,
       output               full,
       output               empty,
-      output               ready,
       input                rst_n
       );
    
@@ -304,12 +303,6 @@ module pheap #(
       end
    end
 
-   reg state;
-   always @(posedge clk) begin
-      state <= rst_n ? enq : 0;
-   end
-   assign ready = ~(state | enq);
-   
    task automatic enque;
       input [WIDTH-1:0] val;
       input [WIDTH-1:0] cur_val;
