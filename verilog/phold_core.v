@@ -153,6 +153,7 @@ module phold_core
    
    reg [NB_HIST_ADDR-1:0] c_hist_addr;
    reg [HIST_WID-1:0] c_hist_data_wr;
+   reg [NB_HIST_DEPTH-1:0] r_hist_size;
    
    wire [HIST_WID-1:0] out_buf_dout, out_buf_din;
    reg [MSG_WID-1:0] cancel_evt_msg;
@@ -202,7 +203,7 @@ module phold_core
 		case(r_state)
 		IDLE : begin
 			if(event_valid) begin
-				c_state = stall ? STALL : READ_HIST;
+				c_state = STALL;
 			end
       end
       STALL : begin
@@ -211,7 +212,7 @@ module phold_core
       end
       
 		READ_HIST: begin
-         if(hist_size == 0) begin
+         if(r_hist_size == 0) begin
             c_state = PROC_DELAY;
          end 
          else begin
@@ -221,7 +222,7 @@ module phold_core
             if(hist_access_grant) begin
 //               $display("read history: core %d, lp:%d, cnt: %d, addr:%h, value: %h", core_id, cur_lp_id, r_hist_cnt, c_hist_addr, hist_data_rd);
                c_hist_cnt = r_hist_cnt + 1;
-               if(r_hist_cnt == hist_size - 1 ) begin
+               if(r_hist_cnt == r_hist_size - 1 ) begin
                   c_hist_cnt = 0;
                   c_hist_rq = 0;
          			c_state = LD_MEM;
@@ -399,6 +400,7 @@ module phold_core
       hist_buf_ret_size <= (~rst_n || r_state == IDLE) ? 0 : 
                               (c_gen_next_evt ? hist_buf_ret_size + 1 : 
                                  (r_hist_filt_done ? hist_buf_cnt : hist_buf_ret_size));
+      r_hist_size <= stall ? 0 : hist_size;
       
    end
    
@@ -487,7 +489,7 @@ module phold_core
       c_discard_cur_evt = r_discard_cur_evt;
       c_gen_rollback = 0;
       c_gen_cancel = r_gen_cancel;
-      if(r_state == READ_HIST && hist_size != 0 && hist_access_grant) begin
+      if(r_state == READ_HIST && r_hist_size != 0 && hist_access_grant) begin
          if(hist_time < gvt) begin // History entry is expired, no chance of rollback
             c_discard_hist_entry = 1;
          end 
