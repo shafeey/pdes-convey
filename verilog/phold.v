@@ -156,7 +156,7 @@ assign send_event_valid = deq;
 assign next_rnd = deq || (r_state == INIT);
 
 // Round robin arbiter
-arbiter #(.NR(NUM_CORE))  rcv_rrarb (	// Receive new events from the cores
+rrarb #(.NR(NUM_CORE))  rcv_rrarb (	// Receive new events from the cores
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( rcv_vld ),
@@ -176,7 +176,7 @@ rrarb #(.NR(NUM_CORE))  send_rrarb (	// Dispatch new events to the cores
    .egnt   ( send_egnt )
 );
 
-arbiter #(.NR(NUM_CORE)) mem_rrarb (	// Memory access arbiter
+rrarb #(.NR(NUM_CORE)) mem_rrarb (	// Memory access arbiter
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( mem_req ),
@@ -190,7 +190,7 @@ wire [NUM_CORE-1:0] hist_req, hist_vgnt;
 wire [NB_COREID-1:0] hist_egnt;
 wire hist_req_vld;
 
-arbiter #(.NR(NUM_CORE))  history_arbiter (   // Event history table arbiter
+rrarb #(.NR(NUM_CORE))  history_arbiter (   // Event history table arbiter
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( hist_req ),
@@ -227,7 +227,7 @@ hist_table #(
    .ADDR_WID (NB_HIST_ADDR)
    )
    history_table(
-      .clka (~clk ), // input clka
+      .clka (clk ), // input clka
       .wea  (hist_wea && hist_req_vld), // input [0 : 0] wea
       .addra(hist_addra), // input [7 : 0] addra
       .dina (hist_dina), // input [31 : 0] dina
