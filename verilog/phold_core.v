@@ -151,9 +151,10 @@ module phold_core
    
    assign active = (r_state != IDLE) && rst_n;
    
-   reg [NB_HIST_ADDR-1:0] c_hist_addr;
+   reg [NB_HIST_ADDR-1:0] c_hist_addr, r_hist_addr;
    reg [HIST_WID-1:0] c_hist_data_wr;
    reg [NB_HIST_DEPTH-1:0] r_hist_size;
+   reg [HIST_WID-1:0] r_hist_data_rd, r_hist_data_wr;
    
    wire [HIST_WID-1:0] out_buf_dout, out_buf_din;
    reg [MSG_WID-1:0] cancel_evt_msg;
@@ -166,10 +167,11 @@ module phold_core
    
    reg [NB_HIST_DEPTH-1:0] hist_buf_ret_size;
    
+   reg c_hist_done;
    reg [NB_HIST_DEPTH-1:0] c_hist_cnt, r_hist_cnt;
    reg c_hist_rq, r_hist_rq;
    reg c_hist_wr, r_hist_wr;
-   reg c_hist_filt_done, r_hist_filt_done;
+   reg c_hist_filt_done, r_hist_filt_done1, r_hist_filt_done2;
    reg c_gen_next_evt;
    
 	reg [MSG_WID-1:0] c_out_event_msg;
@@ -186,18 +188,12 @@ module phold_core
       c_rtn1 = r_rtn1;
       c_rtn2 = r_rtn2;
       
-      c_hist_cnt = 0;
-		c_hist_rq = 0;
-      c_hist_wr = 0;
-      
-      c_hist_filt_done = 0;
       c_rollback_msg_type = 0;
       c_gen_next_evt = 0;
       
       c_out_event_msg = r_out_event_msg;
       c_out_buf_rd_en = 0;
       
-      c_hist_addr = 0;
       c_rq_vadr = 0;
       
 		case(r_state)
@@ -212,24 +208,27 @@ module phold_core
       end
       
 		READ_HIST: begin
-         if(r_hist_size == 0) begin
-            c_state = PROC_DELAY;
-         end 
-         else begin
-   			c_hist_rq = 1'b1;
-            c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
-            c_hist_cnt = r_hist_cnt;
-            if(hist_access_grant) begin
-//               $display("read history: core %d, lp:%d, cnt: %d, addr:%h, value: %h", core_id, cur_lp_id, r_hist_cnt, c_hist_addr, hist_data_rd);
-               c_hist_cnt = r_hist_cnt + 1;
-               if(r_hist_cnt == r_hist_size - 1 ) begin
-                  c_hist_cnt = 0;
-                  c_hist_rq = 0;
-         			c_state = LD_MEM;
-                  c_hist_filt_done = 1;
-               end
-            end
-         end
+         if(c_hist_done)
+            c_state = LD_MEM;
+         
+//         if(r_hist_size == 0) begin
+//            c_state = PROC_DELAY;
+//         end 
+//         else begin
+//   			c_hist_rq = 1'b1;
+//            c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
+//            c_hist_cnt = r_hist_cnt;
+//            if(hist_access_grant) begin
+////               $display("read history: core %d, lp:%d, cnt: %d, addr:%h, value: %h", core_id, cur_lp_id, r_hist_cnt, c_hist_addr, hist_data_rd);
+//               c_hist_cnt = r_hist_cnt + 1;
+//               if(r_hist_cnt == r_hist_size - 1 ) begin
+//                  c_hist_cnt = 0;
+//                  c_hist_rq = 0;
+//         			c_state = LD_MEM;
+//                  c_hist_filt_done = 1;
+//               end
+//            end
+//         end
       end
       
 		LD_MEM: begin
@@ -262,29 +261,31 @@ module phold_core
       end
 
  		WRITE_HIST: begin
-         if(hist_buf_empty) begin
-            c_hist_cnt = 0;
-            c_hist_wr = 0;
-            c_hist_rq = 0;
-            c_state = SEND_EVT;
-         end 
-         else begin
-            c_hist_rq = 1;
-            c_hist_wr = 1;
-            c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
-            c_hist_data_wr = hist_buf_data;
-            c_hist_cnt = r_hist_cnt;
-            if(hist_access_grant) begin
-//               $display("write history: core %d, lp:%d, cnt: %d, addr:%h, value: %h", core_id, cur_lp_id, r_hist_cnt, c_hist_addr, c_hist_data_wr);
-               c_hist_cnt = r_hist_cnt + 1;
-               if(r_hist_cnt == hist_buf_ret_size -1) begin 
-                  c_hist_cnt = 0;
-                  c_hist_wr = 0;
-                  c_hist_rq = 0;
-                  c_state = ST_MEM;
-               end 
-            end
-         end
+          if(c_hist_done)
+             c_state = ST_MEM;
+//         if(hist_buf_empty) begin
+//            c_hist_cnt = 0;
+//            c_hist_wr = 0;
+//            c_hist_rq = 0;
+//            c_state = SEND_EVT;
+//         end 
+//         else begin
+//            c_hist_rq = 1;
+//            c_hist_wr = 1;
+//            c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
+//            c_hist_data_wr = hist_buf_data;
+//            c_hist_cnt = r_hist_cnt;
+//            if(hist_access_grant) begin
+////               $display("write history: core %d, lp:%d, cnt: %d, addr:%h, value: %h", core_id, cur_lp_id, r_hist_cnt, c_hist_addr, c_hist_data_wr);
+//               c_hist_cnt = r_hist_cnt + 1;
+//               if(r_hist_cnt == hist_buf_ret_size -1) begin 
+//                  c_hist_cnt = 0;
+//                  c_hist_wr = 0;
+//                  c_hist_rq = 0;
+//                  c_state = ST_MEM;
+//               end 
+//            end
+//         end
 		end
       
 		ST_MEM: begin
@@ -362,6 +363,85 @@ module phold_core
       end 
    end
    
+   
+   localparam HIST_IDLE = 0;
+   localparam HIST_REQ = 1;
+   localparam HIST_RECV = 2;
+   localparam HIST_WAIT = 3;
+   
+   reg [1:0] c_hist_state, r_hist_state;
+   
+   
+   always @* begin // FSM: read hist table
+      c_hist_done = 0;
+      c_hist_state = r_hist_state;
+      c_hist_rq = 0;
+      c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
+      c_hist_cnt = r_hist_cnt;
+      
+      case (r_hist_state)
+      HIST_IDLE: begin
+         if(r_state == READ_HIST ) begin
+            if(r_hist_size > 0)
+               c_hist_state = HIST_REQ;
+            else
+               c_hist_done = 1;
+         end
+         else if(r_state == WRITE_HIST) begin
+            if(hist_buf_ret_size > 0) 
+               c_hist_state = HIST_REQ;
+            else
+               c_hist_done = 1;
+         end
+      end
+   
+      HIST_REQ: begin
+         c_hist_rq = 1'b1;
+         c_hist_wr = (r_state == WRITE_HIST);
+         
+         c_hist_state = HIST_WAIT;
+      end
+      
+      HIST_WAIT: begin
+         c_hist_rq = 1;
+         c_hist_wr = (r_state == WRITE_HIST);
+         if(hist_access_grant) begin
+            c_hist_rq = 0;
+            c_hist_wr = 0;
+            c_hist_cnt = r_hist_cnt + 1;
+            if(r_state == READ_HIST) begin
+               if(r_hist_cnt == r_hist_size - 1) begin
+                  c_hist_state = HIST_IDLE;
+                  c_hist_done = 1;
+               end
+               else begin
+                  c_hist_state = HIST_REQ;
+               end
+            end
+            else if(r_state == WRITE_HIST) begin
+               if(r_hist_cnt == hist_buf_ret_size - 1) begin
+                  c_hist_done = 1;
+                  c_hist_state = HIST_IDLE;
+               end
+               else 
+                  c_hist_state = HIST_REQ;
+            end
+         end
+      end
+      
+      endcase
+         
+   end
+   
+   reg r_hist_data_vld;
+      
+   always @(posedge clk) begin
+      r_hist_state <= rst_n ? c_hist_state : HIST_IDLE;
+      r_hist_data_rd <= hist_access_grant ? hist_data_rd : r_hist_data_rd;
+      r_hist_data_vld <= (hist_access_grant && r_state == READ_HIST) ;
+      r_hist_data_wr <= hist_buf_data;
+   end
+   
    // Superimpose the buffer size on message, to be read by core monitor  
    assign out_event_msg = r_out_event_msg | {hist_buf_ret_size, {MSG_WID-NB_HIST_DEPTH{1'b0}} };
    
@@ -396,10 +476,11 @@ module phold_core
       r_rs_rtnctl <= (~rst_n) ? 'd0 : mc_rs_rtnctl;
       r_rs_data  <= (~rst_n) ? 'd0 : mc_rs_data;
       r_mc_rq_stall <= mc_rq_stall;
-      r_hist_filt_done <= c_hist_filt_done;
+      r_hist_filt_done1 <= (r_state == READ_HIST) ? c_hist_done : 0;
+      r_hist_filt_done2 <= rst_n ? r_hist_filt_done1 : 0;
       hist_buf_ret_size <= (~rst_n || r_state == IDLE) ? 0 : 
                               (c_gen_next_evt ? hist_buf_ret_size + 1 : 
-                                 (r_hist_filt_done ? hist_buf_cnt : hist_buf_ret_size));
+                                 (r_hist_filt_done2 ? hist_buf_cnt : hist_buf_ret_size));
       r_hist_size <= stall ? 0 : hist_size;
       
    end
@@ -429,29 +510,31 @@ module phold_core
 	end
 	
    always @(posedge clk) begin 
-      r_hist_cnt <= rst_n ? c_hist_cnt : 0;
+      r_hist_cnt <= r_hist_state == IDLE ? 0 : c_hist_cnt;
       r_hist_rq <= rst_n ? c_hist_rq : 0;
       r_hist_wr <= rst_n ? c_hist_wr : 0;
+      r_hist_addr <= c_hist_addr;
       
 //      if(r_state == WRITE_HIST && hist_rq) $display("Writing: core %h, address %h, data %h", core_id, hist_addr, hist_data_wr);
 //      if(r_state == READ_HIST && hist_rq) $display("Reading: core %h, address %h, data %h", core_id, hist_addr, hist_data_rd);      
    end
 
-   assign hist_data_wr = c_hist_data_wr;
-      assign hist_addr = c_hist_addr;
+   assign hist_data_wr = r_hist_data_wr;
+      assign hist_addr = r_hist_addr;
    assign hist_wr_en = r_hist_wr;
    assign hist_rq = r_hist_rq;
+   
    
    wire [TIME_WID-1:0] new_event_time_offest;
    wire [31:0] hist_buf_din;
    
    assign new_event_time_offest = new_event_time - cur_event_time;
    
-   assign hist_buf_wr_en = (~hist_wr_en && hist_rq && hist_access_grant && ~c_discard_hist_entry) ||
+   assign hist_buf_wr_en = (r_hist_data_vld && ~c_discard_hist_entry) ||
                               c_gen_next_evt;
    assign hist_buf_din = c_gen_next_evt ? 
                                  {new_event_target , new_event_time_offest[7:0], cur_event_type, cur_event_time}
-                                 : hist_data_rd;
+                                 : r_hist_data_rd;
    assign hist_buf_rd_en = r_hist_wr & hist_access_grant;
    
    fwft_fifo #(
@@ -473,13 +556,13 @@ module phold_core
     * Event history filter
     */
    wire [TIME_WID-1:0] hist_time; 
-   assign hist_time = hist_data_rd[0 +: TIME_WID];
+   assign hist_time = r_hist_data_rd[0 +: TIME_WID];
    wire hist_type;
-   assign hist_type = hist_data_rd[TIME_WID +: RBK_TYPE_WID]; // 1 = Cancellation Event, 0 = regular event
+   assign hist_type = r_hist_data_rd[TIME_WID +: RBK_TYPE_WID]; // 1 = Cancellation Event, 0 = regular event
    wire [RBK_OFFSET_WID-1:0] hist_offset;
-   assign hist_offset = hist_data_rd[TIME_WID + RBK_TYPE_WID +: RBK_OFFSET_WID];
+   assign hist_offset = r_hist_data_rd[TIME_WID + RBK_TYPE_WID +: RBK_OFFSET_WID];
    wire [NB_LPID-1:0] hist_target;
-   assign hist_target = hist_data_rd[TIME_WID + RBK_TYPE_WID + RBK_OFFSET_WID +: NB_LPID];
+   assign hist_target = r_hist_data_rd[TIME_WID + RBK_TYPE_WID + RBK_OFFSET_WID +: NB_LPID];
    reg c_cancel_match_found, r_cancel_match_found;
    reg c_gen_rollback;
    
@@ -489,7 +572,7 @@ module phold_core
       c_discard_cur_evt = r_discard_cur_evt;
       c_gen_rollback = 0;
       c_gen_cancel = r_gen_cancel;
-      if(r_state == READ_HIST && r_hist_size != 0 && hist_access_grant) begin
+      if(r_hist_data_vld) begin
          if(hist_time < gvt) begin // History entry is expired, no chance of rollback
             c_discard_hist_entry = 1;
          end 
@@ -529,7 +612,7 @@ module phold_core
    
    wire out_buf_wr_en;
    assign out_buf_wr_en = c_gen_rollback;
-   assign out_buf_din = hist_data_rd;
+   assign out_buf_din = r_hist_data_rd;
                            
    fwft_fifo #(
       .WIDTH(32),
