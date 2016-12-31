@@ -391,19 +391,25 @@ LFSR prng (
  *	GVT calculation
  */
  wire [TIME_WID-1:0] c_gvt;
+ reg [TIME_WID-1:0] last_queue_min_time;
+ reg last_queue_empty;
 
  always @(posedge clk or negedge rst_n) begin
    if(~rst_n) begin
       gvt <= 0;
+      last_queue_min_time <= 0;
+      last_queue_empty <= 0;
    end
    else begin
+      last_queue_empty <= q_empty;
+      last_queue_min_time <= queue_out[0 +: TIME_WID];
       gvt <= (r_state == RUNNING) ? c_gvt : gvt;
    end
  end
 
- assign c_gvt = (min_time_vld && !q_empty) ?
-                     (min_time < queue_out[0 +: TIME_WID] ? min_time : queue_out[0 +: TIME_WID]) :
-                        (min_time_vld ? min_time : queue_out[0 +: TIME_WID]);
+ assign c_gvt = (min_time_vld && !last_queue_empty) ?
+                     (min_time < last_queue_min_time ? min_time : last_queue_min_time) :
+                        (min_time_vld ? min_time : last_queue_min_time);
 
 
 `ifdef TRACE

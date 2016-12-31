@@ -112,7 +112,10 @@ module phold_core
 	assign mc_rs_stall = 1'b0;		// we never stall, we can always take responses since we
 					// have room in the result fifo for any data we've requested
 	
+   reg r_event_valid;
 	always@(posedge clk) begin
+      r_event_valid <= event_valid;
+      
 		if(event_valid) begin
          cur_lp_id <= cur_event_msg[TIME_WID +: NB_LPID];
          cur_event_time <= cur_event_msg[0 +: TIME_WID];
@@ -149,7 +152,7 @@ module phold_core
 	wire ld_rtn_vld, st_rtn_vld;
    wire rand_delay_reached;
    
-   assign active = (r_state != IDLE) && rst_n;
+   assign active = ~r_core_ready;
    
    reg [NB_HIST_ADDR-1:0] c_hist_addr, r_hist_addr;
    reg [HIST_WID-1:0] c_hist_data_wr;
@@ -198,7 +201,7 @@ module phold_core
       
 		case(r_state)
 		IDLE : begin
-			if(event_valid) begin
+			if(r_event_valid) begin
 				c_state = STALL;
 			end
       end
@@ -350,6 +353,8 @@ module phold_core
 		endcase
    end
    
+   
+   reg r_core_ready;
    always @(posedge clk) begin
       if(~rst_n || r_state == IDLE) begin
          r_event_ready <= 0;
@@ -361,6 +366,8 @@ module phold_core
          r_out_event_msg <= c_out_event_msg;
          r_rollback_msg_type <= c_rollback_msg_type;
       end 
+      
+      r_core_ready <= rst_n ? (c_state == IDLE) : 0;
    end
    
    
@@ -464,7 +471,7 @@ module phold_core
    assign rbk_evt_msg   = { {MSG_WID-EVT_TYPE_WID-NB_LPID-TIME_WID{1'b0}}, REGULAR_EVT, rbk_lp, rbk_time};
    assign rbk_cncl_msg  = { {MSG_WID-EVT_TYPE_WID-NB_LPID-TIME_WID{1'b0}}, CANCEL_EVT, rbk_target, (rbk_time + rbk_offset)}; 
    
-	assign ready = (r_state == IDLE);
+	assign ready = r_core_ready;
 	assign ld_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_RD8_DATA) &&
 							(r_rs_rtnctl[0 +: NB_COREID] ==  core_id);
 	assign st_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_WR_CMP) &&
