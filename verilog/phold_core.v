@@ -385,6 +385,7 @@ module phold_core
       c_hist_rq = 0;
       c_hist_addr = cur_lp_id * (2 ** NB_HIST_DEPTH) + r_hist_cnt;
       c_hist_cnt = r_hist_cnt;
+      c_hist_wr = 0;
       
       case (r_hist_state)
       HIST_IDLE: begin
