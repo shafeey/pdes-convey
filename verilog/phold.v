@@ -392,6 +392,7 @@ LFSR prng (
  */
  wire [TIME_WID-1:0] c_gvt;
  reg [TIME_WID-1:0] last_queue_min_time;
+ wire [TIME_WID-1:0] min_queue_vals;
  reg last_queue_empty;
 
  always @(posedge clk or negedge rst_n) begin
@@ -406,10 +407,17 @@ LFSR prng (
       gvt <= (r_state == RUNNING) ? c_gvt : gvt;
    end
  end
+ 
+ assign min_queue_vals = (!q_empty && !last_queue_empty) ? 
+                              (queue_out[0 +: TIME_WID] < last_queue_min_time ? queue_out[0 +: TIME_WID] : last_queue_min_time) :
+                                 (!last_queue_empty ? last_queue_min_time : queue_out[0 +: TIME_WID]);
+ 
+ wire min_queue_vld;
+ assign min_queue_vld = !last_queue_empty || !q_empty;
 
- assign c_gvt = (min_time_vld && !last_queue_empty) ?
-                     (min_time < last_queue_min_time ? min_time : last_queue_min_time) :
-                        (min_time_vld ? min_time : last_queue_min_time);
+ assign c_gvt = (min_time_vld && min_queue_vld) ?
+                     (min_time < min_queue_vals ? min_time : min_queue_vals) :
+                        (min_time_vld ? min_time : min_queue_vals);
 
 
 `ifdef TRACE

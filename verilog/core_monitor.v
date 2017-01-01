@@ -49,6 +49,8 @@ module core_monitor #(
    wire   [TIME_WID-1:0] event_time;
 
    wire   [NB_LPID-1:0]    LP_id;
+   reg    [NB_LPID-1:0]    r_LP_id;
+   
    wire   [NB_COREID-1:0]  min_id;
    wire                  min_id_vld;
    wire   [NUM_CORE-1:0] match;
@@ -67,6 +69,9 @@ module core_monitor #(
    reg r_sent_msg_vld, r_rcv_msg_vld;
    reg [NB_COREID-1:0] r_core_id;
    reg [NUM_CORE-1:0] r_core_active;
+   reg [TIME_WID-1:0] r_event_time;
+   reg [NUM_CORE-1:0] r_match, r_match_rcv;
+   reg [NB_HIST_DEPTH-1:0] r_hist_size;
    
    always @(posedge clk) begin
       r_msg <= reset ? 0 : msg;
@@ -74,10 +79,17 @@ module core_monitor #(
       r_rcv_msg_vld <= reset ? 0 : rcv_msg_vld;
       r_core_id <= reset ? 0 : core_id;
       r_core_active <= reset ? 0 : core_active;
+      r_LP_id <= reset ? 0 : LP_id;
+      r_event_time <= reset ? 0 : event_time;
+      
+      r_match <= reset ? 0 : match;
+      r_match_rcv <= reset ? 0 : match_rcv;
+      r_hist_size <= reset ? 0 : hist_size;
    end
 
-   assign LP_id = r_msg[TIME_WID +: NB_LPID];
-   assign event_time = r_msg[0 +: TIME_WID];
+   assign LP_id = msg[TIME_WID +: NB_LPID];
+   assign event_time = msg[0 +: TIME_WID];
+   assign hist_size = msg[MSG_WID-1:MSG_WID-NB_HIST_DEPTH];
    
    assign stall = r_stall | c_stall;
 
@@ -88,12 +100,16 @@ module core_monitor #(
             core_times[i] <= 0;
             core_LP_id[i] <= 0;
          end
+         for(i=0; i<NUM_LP; i=i+1) LP_hist_size[i] <= 0;
       end
       else begin
-         if(r_sent_msg_vld) begin
-            core_times[r_core_id] <= event_time;
-            core_LP_id[r_core_id] <= LP_id;
+         if(sent_msg_vld) begin
+            core_times[core_id] <= event_time;
+            core_LP_id[core_id] <= LP_id;
          end
+         if(rcv_msg_vld) begin
+            LP_hist_size[core_LP_id[core_id]] <= hist_size;
+         end 
       end
    end
 
@@ -103,21 +119,22 @@ module core_monitor #(
     */
    genvar m;
    for(m=0; m<NUM_CORE; m=m+1) begin : mtc
-      assign match[m] = (r_core_active[m] && core_LP_id[m] == LP_id && r_core_id != m);
+      assign match[m] = (core_active[m] && core_LP_id[m] == LP_id && core_id != m);
    end
+   
    
    /**
     * Compare the LP id of the core that's returning an event with the LP id of
     * other active cores and set match bit. Exclude the core that is returning. 
     */
    for(m=0; m<NUM_CORE; m=m+1) begin : mtc_min
-      assign match_rcv[m] = (r_core_active[m] && core_LP_id[m] == core_LP_id[r_core_id] && r_core_id != m);
+      assign match_rcv[m] = (core_active[m] && core_LP_id[m] == core_LP_id[core_id] && core_id != m);
    end
 
    // Stall signal generation
    always @* begin
       c_stall = r_stall;
-      if(r_sent_msg_vld && (|match)) // same LP exists in another core, stall
+      if(r_sent_msg_vld && (|r_match)) // same LP exists in another core, stall
          c_stall[r_core_id] = 1;
       else if(r_rcv_msg_vld && min_id_vld) 
          // Reset stall for core with smallest timestamp (if any)
@@ -129,23 +146,18 @@ module core_monitor #(
    end
    
    
-   assign hist_size = r_msg[MSG_WID-1:MSG_WID-NB_HIST_DEPTH];
    always @(posedge clk or posedge reset) begin
       if(reset) begin : reset_hist_size
          integer i;
-         for(i=0; i<NUM_LP; i=i+1) LP_hist_size[i] <= 0;
          for(i=0; i<NUM_CORE; i=i+1) core_hist_size[i] <= 0;
       end 
       else begin
          if(r_sent_msg_vld) begin
-            core_hist_size[r_core_id] <= LP_hist_size[LP_id];
+            core_hist_size[r_core_id] <= LP_hist_size[r_LP_id];
          end
          else 
-            if(r_rcv_msg_vld) begin 
-               LP_hist_size[core_LP_id[r_core_id]] <= hist_size;
-               if(min_id_vld) begin 
-                  core_hist_size[min_id] <= hist_size;
-               end
+            if(r_rcv_msg_vld && min_id_vld) begin 
+               core_hist_size[min_id] <= r_hist_size;
             end
       end
    end
@@ -173,10 +185,10 @@ module core_monitor #(
 
             if(j+1 == NB_COREID) begin
                /* Top level, assign from input signals */
-               assign l_vld = match_rcv[i*2];
+               assign l_vld = r_match_rcv[i*2];
                assign left = core_times[i*2];
                assign left_idx = {i, 1'b0};
-               assign r_vld = match_rcv[i*2 + 1];
+               assign r_vld = r_match_rcv[i*2 + 1];
                assign right = core_times[i*2 + 1];
                assign right_idx = {i, 1'b1};
             end
@@ -213,9 +225,9 @@ module core_monitor #(
 
             if(h+1 == NB_COREID) begin
                /* Top level, assign from input signals */
-               assign l_vld = r_core_active[g*2];
+               assign l_vld = core_active[g*2];
                assign left = core_times[g*2];
-               assign r_vld = r_core_active[g*2 + 1];
+               assign r_vld = core_active[g*2 + 1];
                assign right = core_times[g*2 + 1];
             end
             else begin
