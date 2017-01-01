@@ -152,6 +152,7 @@ module phold_core
 	wire ld_rtn_vld, st_rtn_vld;
    wire rand_delay_reached;
    
+   reg r_core_ready;
    assign active = ~r_core_ready;
    
    reg [NB_HIST_ADDR-1:0] c_hist_addr, r_hist_addr;
@@ -354,7 +355,6 @@ module phold_core
    end
    
    
-   reg r_core_ready;
    always @(posedge clk) begin
       if(~rst_n || r_state == IDLE) begin
          r_event_ready <= 0;
