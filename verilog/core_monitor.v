@@ -55,6 +55,7 @@ module core_monitor #(
    wire                  min_id_vld;
    wire   [NUM_CORE-1:0] match;
    wire   [NUM_CORE-1:0] match_rcv; // Match LP id in other cores when receiving events
+   wire   [NUM_CORE-1:0] match_mask;
    
    reg    [NB_HIST_DEPTH-1:0] LP_hist_size[0:NUM_LP-1];
    reg    [NB_HIST_DEPTH-1:0] core_hist_size[0:NUM_CORE-1];
@@ -70,8 +71,13 @@ module core_monitor #(
    reg [NB_COREID-1:0] r_core_id;
    reg [NUM_CORE-1:0] r_core_active;
    reg [TIME_WID-1:0] r_event_time;
-   reg [NUM_CORE-1:0] r_match, r_match_rcv;
+   reg [NUM_CORE-1:0] r_match, r_match_rcv, r_match_send;
    reg [NB_HIST_DEPTH-1:0] r_hist_size;
+   reg [NB_LPID-1:0] r_msg_LP_id;
+   
+   reg    [TIME_WID-1:0] r_mf_core_times [0:NUM_CORE-1];
+   reg    [NB_LPID-1:0]    r_mf_LP_id;
+   reg [NB_COREID-1:0] r_mf_core_id;
    
    always @(posedge clk) begin
       r_msg <= reset ? 0 : msg;
@@ -83,8 +89,8 @@ module core_monitor #(
       r_event_time <= reset ? 0 : event_time;
       
       r_match <= reset ? 0 : match;
-      r_match_rcv <= reset ? 0 : match_rcv;
       r_hist_size <= reset ? 0 : hist_size;
+      r_msg_LP_id <= reset ? 0 : core_LP_id[core_id];
    end
 
    assign LP_id = msg[TIME_WID +: NB_LPID];
@@ -107,38 +113,78 @@ module core_monitor #(
             core_times[core_id] <= event_time;
             core_LP_id[core_id] <= LP_id;
          end
-         if(rcv_msg_vld) begin
-            LP_hist_size[core_LP_id[core_id]] <= hist_size;
+         if(r_rcv_msg_vld) begin
+            LP_hist_size[core_LP_id[r_core_id]] <= r_hist_size;
          end 
       end
    end
 
+   genvar m;
    /**
     * Compare the LP id with all the ACTIVE cores' LP and set the match bit
     * Exclude the core that is receiving the event 
     */
-   genvar m;
    for(m=0; m<NUM_CORE; m=m+1) begin : mtc
-      assign match[m] = (core_active[m] && core_LP_id[m] == LP_id && core_id != m);
+      assign match[m] = (r_core_active[m] && core_LP_id[m] == r_LP_id && core_id != m);
    end
-   
    
    /**
     * Compare the LP id of the core that's returning an event with the LP id of
     * other active cores and set match bit. Exclude the core that is returning. 
     */
    for(m=0; m<NUM_CORE; m=m+1) begin : mtc_min
-      assign match_rcv[m] = (core_active[m] && core_LP_id[m] == core_LP_id[core_id] && core_id != m);
+      assign match_rcv[m] = (r_core_active[m] && core_LP_id[m] == core_LP_id[r_core_id]);
+      assign match_mask[m] = (r_core_id == m);
    end
+   
+   reg [1:0] r_min_wait;
+   reg [1:0] r_send_wait;
+   
+   always @(posedge clk) begin
+      if(reset) begin
+         r_match_rcv <= 0;
+         r_match_send <= 0;
+         r_min_wait <= 0;
+         r_mf_LP_id <= 0;
+         r_mf_core_id <= 0;
+      end
+      else begin
+         r_min_wait <= {r_min_wait[0], r_rcv_msg_vld};
+         r_send_wait <= {r_send_wait[0], r_sent_msg_vld};
+         r_mf_LP_id <= (r_rcv_msg_vld || r_sent_msg_vld) ? core_LP_id[r_core_id] : r_mf_LP_id;
+         r_mf_core_id <= r_sent_msg_vld || r_rcv_msg_vld ? r_core_id : r_mf_core_id;
+         
+         if(r_sent_msg_vld) begin
+            r_match_send <= match_rcv;
+         end 
+         
+         if(r_rcv_msg_vld) begin
+            r_match_rcv <= match_rcv ^ match_mask;
+         end
+         
+         
+         if (r_rcv_msg_vld) begin : mf
+            integer i;
+            for(i=0; i<NUM_CORE; i=i+1) r_mf_core_times[i] <= core_times[i];
+            // Find the cores processing the msg's LP_id and 
+            // If the core received new event, it's not marked active yet. XOR includes this in the minimum finding process
+            // If the core is sending messages, it's already marked active but it should be ignored to find the next eligible core.
+            // XOR operation removes it from the minimum finding process.
+         end
+      end
+   end
+   
 
    // Stall signal generation
    always @* begin
       c_stall = r_stall;
-      if(r_sent_msg_vld && (|r_match)) // same LP exists in another core, stall
-         c_stall[r_core_id] = 1;
-      else if(r_rcv_msg_vld && min_id_vld) 
+      if(sent_msg_vld) // Stall the core that's receiving new event
+         c_stall[core_id] = 1;
+      else if(r_min_wait[1] && (|r_match_rcv) ) // Finding core with minimum timestamp finished (takes two cycle) 
          // Reset stall for core with smallest timestamp (if any)
          c_stall[min_id] = 0;
+      else if(r_send_wait[1] && ~(|r_match_send) )
+         c_stall[r_mf_core_id] = 0;
    end
                         
    always @(posedge clk) begin
@@ -152,13 +198,12 @@ module core_monitor #(
          for(i=0; i<NUM_CORE; i=i+1) core_hist_size[i] <= 0;
       end 
       else begin
-         if(r_sent_msg_vld) begin
-            core_hist_size[r_core_id] <= LP_hist_size[r_LP_id];
+         if(r_min_wait[1] && (|r_match_rcv) ) begin 
+            core_hist_size[min_id] <= LP_hist_size[r_mf_LP_id];
          end
-         else 
-            if(r_rcv_msg_vld && min_id_vld) begin 
-               core_hist_size[min_id] <= r_hist_size;
-            end
+         else if(r_send_wait[1]) begin
+            core_hist_size[r_mf_core_id] <= LP_hist_size[r_mf_LP_id];
+         end 
       end
    end
    
@@ -186,10 +231,10 @@ module core_monitor #(
             if(j+1 == NB_COREID) begin
                /* Top level, assign from input signals */
                assign l_vld = r_match_rcv[i*2];
-               assign left = core_times[i*2];
+               assign left = r_mf_core_times[i*2];
                assign left_idx = {i, 1'b0};
                assign r_vld = r_match_rcv[i*2 + 1];
-               assign right = core_times[i*2 + 1];
+               assign right = r_mf_core_times[i*2 + 1];
                assign right_idx = {i, 1'b1};
             end
             else begin

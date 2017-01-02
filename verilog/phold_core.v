@@ -113,8 +113,10 @@ module phold_core
 					// have room in the result fifo for any data we've requested
 	
    reg r_event_valid;
+   reg r_stall;
 	always@(posedge clk) begin
       r_event_valid <= event_valid;
+      r_stall <= stall;
       
 		if(event_valid) begin
          cur_lp_id <= cur_event_msg[TIME_WID +: NB_LPID];
@@ -207,7 +209,7 @@ module phold_core
 			end
       end
       STALL : begin
-         if(!stall)
+         if(!r_stall)
             c_state = READ_HIST;
       end
       
