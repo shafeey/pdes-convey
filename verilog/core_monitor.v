@@ -149,8 +149,8 @@ module core_monitor #(
          r_mf_core_id <= 0;
       end
       else begin
-         r_min_wait <= {r_min_wait[0], r_rcv_msg_vld};
-         r_send_wait <= {r_send_wait[0], r_sent_msg_vld};
+         r_min_wait <= (r_min_wait[1] && sent_msg_vld) ? r_min_wait : {r_min_wait[0], r_rcv_msg_vld};
+         r_send_wait <= (r_send_wait[1] && sent_msg_vld) ? r_send_wait :  {r_send_wait[0], r_sent_msg_vld};
          r_mf_LP_id <= (r_rcv_msg_vld || r_sent_msg_vld) ? core_LP_id[r_core_id] : r_mf_LP_id;
          r_mf_core_id <= r_sent_msg_vld || r_rcv_msg_vld ? r_core_id : r_mf_core_id;
          

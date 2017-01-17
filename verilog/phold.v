@@ -156,7 +156,7 @@ assign send_event_valid = deq;
 assign next_rnd = deq || (r_state == INIT);
 
 // Round robin arbiter
-rrarb #(.NR(NUM_CORE))  rcv_rrarb (	// Receive new events from the cores
+rrarb #(.NR(NUM_CORE), .PIPE(1))  rcv_rrarb (	// Receive new events from the cores
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( rcv_vld ),
@@ -166,7 +166,7 @@ rrarb #(.NR(NUM_CORE))  rcv_rrarb (	// Receive new events from the cores
    .egnt   ( rcv_egnt )
 );
 
-rrarb #(.NR(NUM_CORE))  send_rrarb (	// Dispatch new events to the cores
+rrarb #(.NR(NUM_CORE), .PIPE(1))  send_rrarb (	// Dispatch new events to the cores
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( send_vld ),
@@ -176,7 +176,7 @@ rrarb #(.NR(NUM_CORE))  send_rrarb (	// Dispatch new events to the cores
    .egnt   ( send_egnt )
 );
 
-rrarb #(.NR(NUM_CORE)) mem_rrarb (	// Memory access arbiter
+rrarb #(.NR(NUM_CORE), .PIPE(1)) mem_rrarb (	// Memory access arbiter
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( mem_req ),
@@ -190,7 +190,7 @@ wire [NUM_CORE-1:0] hist_req, hist_vgnt;
 wire [NB_COREID-1:0] hist_egnt;
 wire hist_req_vld;
 
-rrarb #(.NR(NUM_CORE))  history_arbiter (   // Event history table arbiter
+rrarb #(.NR(NUM_CORE), .PIPE(1))  history_arbiter (   // Event history table arbiter
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( hist_req ),
