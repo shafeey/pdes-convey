@@ -30,8 +30,8 @@ module phold #(
    );
 
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  16;
-   localparam NB_COREID = 4;
+   localparam NUM_CORE =  64;
+   localparam NB_COREID = 6;
    localparam NUM_LP = 64;
    localparam NB_LPID = 6;
    // Need to re-generate the core if History table parameters change.
@@ -42,6 +42,26 @@ module phold #(
    localparam NB_RAND = 24;
 
    localparam NUM_MEM_BYTE = 8;
+
+
+   // Registering Mem Interface
+   reg         r_mc_rq_vld;
+   reg [2:0]   r_mc_rq_cmd;
+   reg [3:0]   r_mc_rq_scmd;
+   reg [47:0]  r_mc_rq_vadr;
+   reg [1:0]   r_mc_rq_size;
+   reg [MC_RTNCTL_WIDTH-1:0]  r_mc_rq_rtnctl;
+   reg [63:0]  r_mc_rq_data;
+   reg         r_mc_rq_flush;
+   reg       r_mc_rq_stall;
+
+   reg       r_mc_rs_vld;
+   reg  [2:0]   r_mc_rs_cmd;
+   reg  [3:0]   r_mc_rs_scmd;
+   reg  [MC_RTNCTL_WIDTH-1:0]  r_mc_rs_rtnctl;
+   reg  [63:0]  r_mc_rs_data;
+   reg         r_mc_rs_stall;
+
 
    wire [MSG_WID-1:0] msg;
    wire sent_msg_vld;
@@ -246,17 +266,6 @@ wire [63:0] p_mc_rq_data[NUM_CORE-1:0];
 wire [NUM_CORE-1:0] p_mc_rq_flush;
 wire [NUM_CORE-1:0] p_mc_rs_stall;
 
-assign mem_req = p_mc_rq_vld;
-assign mc_rq_vld = mem_req_vld;
-assign mc_rq_cmd = p_mc_rq_cmd[mem_egnt];
-assign mc_rq_scmd = p_mc_rq_scmd[mem_egnt];
-assign mc_rq_vadr = p_mc_rq_vadr[mem_egnt];
-assign mc_rq_size = p_mc_rq_size[mem_egnt];
-assign mc_rq_rtnctl = p_mc_rq_rtnctl[mem_egnt];
-assign mc_rq_data = p_mc_rq_data[mem_egnt];
-assign mc_rq_flush = p_mc_rq_flush[mem_egnt];
-assign mc_rs_stall = p_mc_rs_stall[mem_egnt];
-
 wire [NB_HIST_DEPTH*NUM_CORE-1:0] core_hist_cnt;
 wire [NUM_CORE-1:0] core_active;
 // Phold Core instantiation
@@ -306,12 +315,12 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .mc_rq_rtnctl     ( p_mc_rq_rtnctl[g] ),
       .mc_rq_data       ( p_mc_rq_data[g] ),
       .mc_rq_flush      ( p_mc_rq_flush[g] ),
-      .mc_rq_stall      ( mc_rq_stall ),
-      .mc_rs_vld        ( mc_rs_vld ),
-      .mc_rs_cmd        ( mc_rs_cmd ),
-      .mc_rs_scmd       ( mc_rs_scmd ),
-      .mc_rs_rtnctl     ( mc_rs_rtnctl ),
-      .mc_rs_data       ( mc_rs_data ),
+      .mc_rq_stall      ( r_mc_rq_stall ),
+      .mc_rs_vld        ( r_mc_rs_vld ),
+      .mc_rs_cmd        ( r_mc_rs_cmd ),
+      .mc_rs_scmd       ( r_mc_rs_scmd ),
+      .mc_rs_rtnctl     ( r_mc_rs_rtnctl ),
+      .mc_rs_data       ( r_mc_rs_data ),
       .mc_rs_stall      ( p_mc_rs_stall[g] ),
       .addr             ( addr ),
       .mem_gnt          ( mem_vgnt[g] )
@@ -387,6 +396,37 @@ LFSR prng (
       .reset       ( ~rst_n )
    );
 
+   
+   always @(posedge clk) begin
+      r_mc_rs_vld <= mc_rs_vld;
+      r_mc_rs_cmd <= mc_rs_cmd;
+      r_mc_rs_scmd <= mc_rs_scmd;
+      r_mc_rs_rtnctl <= mc_rs_rtnctl;
+      r_mc_rs_data <= mc_rs_data;
+      r_mc_rs_stall <= mc_rq_stall;
+      
+      r_mc_rq_vld <= mem_req_vld;
+      r_mc_rq_cmd <= p_mc_rq_cmd[mem_egnt];
+      r_mc_rq_scmd <= p_mc_rq_scmd[mem_egnt];
+      r_mc_rq_vadr <= p_mc_rq_vadr[mem_egnt];
+      r_mc_rq_size <= p_mc_rq_size[mem_egnt];
+      r_mc_rq_rtnctl <= p_mc_rq_rtnctl[mem_egnt];
+      r_mc_rq_data <= p_mc_rq_data[mem_egnt];
+      r_mc_rq_flush <= p_mc_rq_flush[mem_egnt];
+      r_mc_rq_stall <= p_mc_rs_stall[mem_egnt];
+   end   
+   
+   assign mem_req = p_mc_rq_vld;
+   assign mc_rq_vld = r_mc_rq_vld;
+   assign mc_rq_cmd = r_mc_rq_cmd;
+   assign mc_rq_scmd = r_mc_rq_scmd;
+   assign mc_rq_vadr = r_mc_rq_vadr;
+   assign mc_rq_size = r_mc_rq_size;
+   assign mc_rq_rtnctl = r_mc_rq_rtnctl;
+   assign mc_rq_data = r_mc_rq_data;
+   assign mc_rq_flush = r_mc_rq_flush;
+   assign mc_rs_stall = r_mc_rs_stall;
+   
 /*
  *	GVT calculation
  */
