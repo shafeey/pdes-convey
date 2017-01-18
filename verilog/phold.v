@@ -30,8 +30,8 @@ module phold #(
    );
 
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  32;
-   localparam NB_COREID = 5;
+   localparam NUM_CORE =  16;
+   localparam NB_COREID = 4;
    localparam NUM_LP = 64;
    localparam NB_LPID = 6;
    // Need to re-generate the core if History table parameters change.
@@ -138,7 +138,7 @@ always @(posedge clk or negedge rst_n) begin
       init_counter <= (r_state == INIT) ? (init_counter + 1) : 0;
    end
 end
-assign init_complete = (init_counter == 8'd31);
+assign init_complete = (init_counter == 8'd64);
 
 
 /*
@@ -360,7 +360,7 @@ pheap #(.CMP_WID(TIME_WID+1)) queue(
 );
 
 // PRNG instantiation
-wire [47:0] seed = 48'h66638887aa1a; // Initialize PRNG with a seed
+wire [47:0] seed = 48'h66668888aaaa; // Initialize PRNG with a seed
 LFSR prng (
    .clk   ( clk ),
    .rst_n ( rst_n ),
@@ -435,6 +435,7 @@ LFSR prng (
  wire [TIME_WID-1:0] min_queue_vals;
  reg last_queue_empty;
 
+ reg [TIME_WID-1:0] q_min_time;
  always @(posedge clk or negedge rst_n) begin
    if(~rst_n) begin
       gvt <= 0;
@@ -444,7 +445,7 @@ LFSR prng (
    else begin
       last_queue_empty <= q_empty;
       last_queue_min_time <= queue_out[0 +: TIME_WID];
-      gvt <= (r_state == RUNNING) ? c_gvt : gvt;
+      gvt <= (r_state == RUNNING && min_time_vld) ? c_gvt : gvt;
    end
  end
  
@@ -454,12 +455,27 @@ LFSR prng (
  
  wire min_queue_vld;
  assign min_queue_vld = !last_queue_empty || !q_empty;
+ 
 
 // assign c_gvt = (min_time_vld && min_queue_vld) ?
 //                     (min_time < min_queue_vals ? min_time : min_queue_vals) :
 //                        (min_time_vld ? min_time : min_queue_vals);
 
-assign c_gvt = (min_time_vld) ? min_time : gvt;
+assign c_gvt = q_min_time < min_time ? q_min_time : min_time;
+ 
+always @(posedge clk) begin
+   if(~rst_n) begin
+      q_min_time <= {TIME_WID{1'b1}};
+   end
+   else begin
+      if(min_time_vld && !q_empty)
+         q_min_time <= queue_out[0 +: TIME_WID];
+      else if(!q_empty)
+         q_min_time <= q_min_time < queue_out[0 +: TIME_WID] ? q_min_time : queue_out[0 +: TIME_WID];   
+   end
+   
+end 
+ 
 
 `ifdef TRACE
  always @(posedge clk) begin : trace

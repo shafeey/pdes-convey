@@ -257,8 +257,9 @@ module core_monitor #(
     * Find the minimum timestamp among the active cores
     */
     
-    wire [TIME_WID-1:0] min_core_times[0:3];
+    wire [TIME_WID-1:0] min_core_times[0:(NUM_CORE >> 3)-1];
    wire min_core_vld;
+    wire [TIME_WID-1:0] mt0, mt1, mt2, mt;
     
     reg [3:0] min_time_ctr;
     generate
@@ -292,7 +293,7 @@ module core_monitor #(
 //      assign min_time = m_time[0].cmp[0].min;
 //      assign min_time_vld = m_time[0].cmp[0].min_vld;
        
-       reg [3:0] v1, v2;
+       reg [(NUM_CORE >> 3)-1:0] v1, v2;
        for(g=0; g < (NUM_CORE >> 3); g = g+1) begin : min_vt
           reg [TIME_WID-1:0] min_core_time1, min_core_time2; 
           wire [TIME_WID-1:0] core_time;
@@ -330,6 +331,24 @@ module core_monitor #(
           assign min_core_vld = |v2;
           
        end
+       
+       if(NUM_CORE == 8) begin
+          assign min_time = min_core_times[0];
+       end
+       else if(NUM_CORE == 16) begin
+          assign mt0 = (min_core_times[0] < min_core_times[1]) ? min_core_times[0] : min_core_times[1];
+          assign min_time = mt0;
+       end 
+       else if(NUM_CORE == 32) begin
+          assign mt0 = (min_core_times[0] < min_core_times[1]) ? min_core_times[0] : min_core_times[1];
+          assign mt1 = (min_core_times[2] < min_core_times[3]) ? min_core_times[2] : min_core_times[3];
+          
+          assign mt2 = (mt0 < mt1) ? mt0 : mt1;
+          assign mt = min_core_vld ? mt2 : 0;
+          
+          assign min_time = mt;
+       end
+       
       
     endgenerate
     
@@ -352,15 +371,14 @@ module core_monitor #(
        else
           min_time_ctr <= min_time_ctr + 1;
     end
-    
-    wire [TIME_WID-1:0] mt0, mt1, mt2, mt;
-    assign mt0 = (min_core_times[0] < min_core_times[1]) ? min_core_times[0] : min_core_times[1];
-    assign mt1 = (min_core_times[2] < min_core_times[3]) ? min_core_times[2] : min_core_times[3];
-    
-    assign mt2 = (mt0 < mt1) ? mt0 : mt1;
-    assign mt = min_core_vld ? mt2 : 0;
-    
-    assign min_time = mt < min_msg_time ? mt : min_msg_time;
+//    
+//    assign mt0 = (min_core_times[0] < min_core_times[1]) ? min_core_times[0] : min_core_times[1];
+//    assign mt1 = (min_core_times[2] < min_core_times[3]) ? min_core_times[2] : min_core_times[3];
+//    
+//    assign mt2 = (mt0 < mt1) ? mt0 : mt1;
+//    assign mt = min_core_vld ? mt2 : 0;
+//    
+//    assign min_time = mt < min_msg_time ? mt : min_msg_time;
     assign min_time_vld = (min_time_ctr == 9);
     
 
