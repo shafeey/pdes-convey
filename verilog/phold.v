@@ -30,8 +30,8 @@ module phold #(
    );
 
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  64;
-   localparam NB_COREID = 6;
+   localparam NUM_CORE =  32;
+   localparam NB_COREID = 5;
    localparam NUM_LP = 64;
    localparam NB_LPID = 6;
    // Need to re-generate the core if History table parameters change.
@@ -360,7 +360,7 @@ pheap #(.CMP_WID(TIME_WID+1)) queue(
 );
 
 // PRNG instantiation
-wire [47:0] seed = 48'h66668888aaaa; // Initialize PRNG with a seed
+wire [47:0] seed = 48'h66638887aa1a; // Initialize PRNG with a seed
 LFSR prng (
    .clk   ( clk ),
    .rst_n ( rst_n ),
@@ -455,10 +455,11 @@ LFSR prng (
  wire min_queue_vld;
  assign min_queue_vld = !last_queue_empty || !q_empty;
 
- assign c_gvt = (min_time_vld && min_queue_vld) ?
-                     (min_time < min_queue_vals ? min_time : min_queue_vals) :
-                        (min_time_vld ? min_time : min_queue_vals);
+// assign c_gvt = (min_time_vld && min_queue_vld) ?
+//                     (min_time < min_queue_vals ? min_time : min_queue_vals) :
+//                        (min_time_vld ? min_time : min_queue_vals);
 
+assign c_gvt = (min_time_vld) ? min_time : gvt;
 
 `ifdef TRACE
  always @(posedge clk) begin : trace

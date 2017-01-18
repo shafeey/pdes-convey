@@ -256,37 +256,112 @@ module core_monitor #(
    /**
     * Find the minimum timestamp among the active cores
     */
+    
+    wire [TIME_WID-1:0] min_core_times[0:3];
+   wire min_core_vld;
+    
+    reg [3:0] min_time_ctr;
     generate
       genvar g, h;
-      for (h = 0; h < NB_COREID; h = h + 1) begin : m_time
-         for(g = 0; g < 2**h; g = g+1) begin : cmp
-            wire [TIME_WID-1:0]  left, right, min;
-            wire                 l_vld, r_vld, min_vld;
+//      for (h = 0; h < NB_COREID; h = h + 1) begin : m_time
+//         for(g = 0; g < 2**h; g = g+1) begin : cmp
+//            wire [TIME_WID-1:0]  left, right, min;
+//            wire                 l_vld, r_vld, min_vld;
+//
+//            assign min = (l_vld && r_vld) ?
+//                              (left < right ? left : right) :
+//                              (l_vld ? left : right);
+//            assign min_vld = (l_vld || r_vld);
+//
+//            if(h+1 == NB_COREID) begin
+//               /* Top level, assign from input signals */
+//               assign l_vld = core_active[g*2];
+//               assign left = core_times[g*2];
+//               assign r_vld = core_active[g*2 + 1];
+//               assign right = core_times[g*2 + 1];
+//            end
+//            else begin
+//               assign l_vld = m_time[h+1].cmp[g*2].min_vld;
+//               assign left = m_time[h+1].cmp[g*2].min;
+//               assign r_vld = m_time[h+1].cmp[g*2 + 1].min_vld;
+//               assign right = m_time[h+1].cmp[g*2 + 1].min;
+//            end
+//         end
+//      end
+//
+//      assign min_time = m_time[0].cmp[0].min;
+//      assign min_time_vld = m_time[0].cmp[0].min_vld;
+       
+       reg [3:0] v1, v2;
+       for(g=0; g < (NUM_CORE >> 3); g = g+1) begin : min_vt
+          reg [TIME_WID-1:0] min_core_time1, min_core_time2; 
+          wire [TIME_WID-1:0] core_time;
+          
+          assign core_time = core_times[{g,min_time_ctr[0 +: 3]}];
+          
+          always @(posedge clk) begin
+             if(reset) begin
+                min_core_time1 <= {TIME_WID{1'b1}};
+                min_core_time2 <= {TIME_WID{1'b1}};
+                v1[g] <= 0;
+                v2[g] <= 0;
+             end
+             else begin
+                if(min_time_ctr == 9) begin
+                   min_core_time1 <= {TIME_WID{1'b1}};
+                   min_core_time2 <= min_core_time1;
+                   v1[g] <= 0;
+                   v2[g] <= v1[g];
+                end
+                else begin
+                   if( r_core_active[ {g,min_time_ctr[0 +: 3]} ] ) begin
+                      if(min_core_time1 > core_time)
+                        min_core_time1 <= core_time;
+                      if(min_core_time2 > core_time)
+                         min_core_time2 <= core_time;
+                      v1[g] <= 1;
+                      v2[g] <= 1;
+                   end
+                end
+             end
+          end
+          
+          assign min_core_times[g] = min_core_time2;
+          assign min_core_vld = |v2;
+          
+       end
+      
+    endgenerate
+    
+    reg [TIME_WID-1:0] min_msg_time;
+    always @(posedge clk) begin
+       if(reset || min_time_vld)
+          min_msg_time <= {TIME_WID{1'b1}};
+       else
+          if(sent_msg_vld || rcv_msg_vld) begin
+             min_msg_time <= min_msg_time < event_time ? min_msg_time : event_time;
+          end
+    end
+    
+    
+    always @(posedge clk) begin
+       if(reset)
+          min_time_ctr <= 0;
+       else if(min_time_ctr == 9)
+          min_time_ctr <= 0;
+       else
+          min_time_ctr <= min_time_ctr + 1;
+    end
+    
+    wire [TIME_WID-1:0] mt0, mt1, mt2, mt;
+    assign mt0 = (min_core_times[0] < min_core_times[1]) ? min_core_times[0] : min_core_times[1];
+    assign mt1 = (min_core_times[2] < min_core_times[3]) ? min_core_times[2] : min_core_times[3];
+    
+    assign mt2 = (mt0 < mt1) ? mt0 : mt1;
+    assign mt = min_core_vld ? mt2 : 0;
+    
+    assign min_time = mt < min_msg_time ? mt : min_msg_time;
+    assign min_time_vld = (min_time_ctr == 9);
+    
 
-            assign min = (l_vld && r_vld) ?
-                              (left < right ? left : right) :
-                              (l_vld ? left : right);
-            assign min_vld = (l_vld || r_vld);
-
-            if(h+1 == NB_COREID) begin
-               /* Top level, assign from input signals */
-               assign l_vld = core_active[g*2];
-               assign left = core_times[g*2];
-               assign r_vld = core_active[g*2 + 1];
-               assign right = core_times[g*2 + 1];
-            end
-            else begin
-               assign l_vld = m_time[h+1].cmp[g*2].min_vld;
-               assign left = m_time[h+1].cmp[g*2].min;
-               assign r_vld = m_time[h+1].cmp[g*2 + 1].min_vld;
-               assign right = m_time[h+1].cmp[g*2 + 1].min;
-            end
-         end
-      end
-
-      assign min_time = m_time[0].cmp[0].min;
-      assign min_time_vld = m_time[0].cmp[0].min_vld;
-
-   endgenerate
-   
 endmodule

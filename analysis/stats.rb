@@ -13,9 +13,9 @@ ARGV.each do |a|
    filename = a
 end
 
-NUM_CORE = 16
+NUM_CORE = 32
 NUM_LP = 64
-Q_SIZE = 62
+Q_SIZE = 63
 
 qc = Array.new(Q_SIZE + 1, 0)
 core_time = Array.new(NUM_CORE, -1)
