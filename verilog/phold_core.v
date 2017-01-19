@@ -215,7 +215,7 @@ module phold_core
       
 		READ_HIST: begin
          if(c_hist_done)
-            c_state = LD_MEM;
+            c_state = PROC_DELAY;
          
 //         if(r_hist_size == 0) begin
 //            c_state = PROC_DELAY;
@@ -268,7 +268,7 @@ module phold_core
 
  		WRITE_HIST: begin
           if(c_hist_done)
-             c_state = ST_MEM;
+             c_state = SEND_EVT;
 //         if(hist_buf_empty) begin
 //            c_hist_cnt = 0;
 //            c_hist_wr = 0;
