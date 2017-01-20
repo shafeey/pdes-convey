@@ -324,7 +324,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .mc_rs_stall      ( p_mc_rs_stall[g] ),
       .addr             ( addr ),
       .mem_gnt          ( mem_vgnt[g] )
-   );
+   )/* synthesis syn_noprune=1 */;
 
    assign event_valid = send_event_valid & send_vgnt[g] & ~queue_busy;
    assign rcv_vld[g] = new_event_ready;
