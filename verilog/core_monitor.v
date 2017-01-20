@@ -99,6 +99,7 @@ module core_monitor #(
    
    assign stall = r_stall | c_stall;
 
+//   reg [NB_LPID-1:0] r_cur_lp;
    always @(posedge clk) begin 
       if(reset) begin : reset_table
          integer i;
@@ -109,6 +110,8 @@ module core_monitor #(
          for(i=0; i<NUM_LP; i=i+1) LP_hist_size[i] <= 0;
       end
       else begin
+//         r_cur_lp <= core_LP_id[core_id];
+         
          if(sent_msg_vld) begin
             core_times[core_id] <= event_time;
             core_LP_id[core_id] <= LP_id;
@@ -134,7 +137,7 @@ module core_monitor #(
     */
    for(m=0; m<NUM_CORE; m=m+1) begin : mtc_min
       assign match_rcv[m] = (r_core_active[m] && core_LP_id[m] == core_LP_id[r_core_id]);
-      assign match_mask[m] = (r_core_id == m);
+      assign match_mask[m] = (1 << r_core_id); //(r_core_id == m);
    end
    
    reg [1:0] r_min_wait;
@@ -155,13 +158,12 @@ module core_monitor #(
          r_mf_core_id <= r_sent_msg_vld || r_rcv_msg_vld ? r_core_id : r_mf_core_id;
          
          if(r_sent_msg_vld) begin
-            r_match_send <= match_rcv;
+//            r_match_send <= match_rcv;
+            r_match_rcv <= match_rcv;
          end 
-         
-         if(r_rcv_msg_vld) begin
-            r_match_rcv <= match_rcv ^ match_mask;
+         else if(r_rcv_msg_vld) begin
+            r_match_rcv <= match_rcv & ~(1 << r_core_id);
          end
-         
          
          if (r_rcv_msg_vld) begin : mf
             integer i;
@@ -176,34 +178,75 @@ module core_monitor #(
    
 
    // Stall signal generation
+   reg [1:0] op [0:NB_COREID];
+   reg [NB_COREID-1:0] core_id_his [0:NB_COREID];
+   reg [NB_LPID-1:0] lp_id_his [0:NB_COREID];
+      
+   always @(posedge clk) begin : keep_hist
+      integer q;
+      for(q=0; q< NB_COREID; q = q+1) begin
+         op[q] <= op[q+1];
+         core_id_his[q] <= core_id_his[q+1];
+         lp_id_his[q] <= lp_id_his[q+1];
+      end
+      op[NB_COREID] <= {r_sent_msg_vld, r_rcv_msg_vld};
+      core_id_his[NB_COREID] <= r_core_id;
+      lp_id_his[NB_COREID] <= core_LP_id[r_core_id];
+   end
+   
+   
+   reg [NUM_CORE-1:0] mask_set, mask_res;
    always @* begin
       c_stall = r_stall;
+      mask_set = 0;
+      mask_res = 0;
+      
       if(sent_msg_vld) // Stall the core that's receiving new event
-         c_stall[core_id] = 1;
-      else if(r_min_wait[1] && (|r_match_rcv) ) // Finding core with minimum timestamp finished (takes two cycle) 
+         mask_set = (1 << core_id);
+      
+      case (op[0])
+      2'b01: begin //received event from core
+         if(min_id_vld)
+            mask_res = (1 <<  min_id);
+      end
+      2'b10: begin // sent event to core
+         if(~min_id_vld)
+            mask_res = (1 << core_id_his[0]);
+      end
+      default:
+         mask_res = 0;
+      endcase
+         
+//         c_stall[core_id] = 1;
+//      else if(r_min_wait[1] && (|r_match_rcv) ) // Finding core with minimum timestamp finished (takes two cycle) 
          // Reset stall for core with smallest timestamp (if any)
-         c_stall[min_id] = 0;
-      else if(r_send_wait[1] && ~(|r_match_send) )
-         c_stall[r_mf_core_id] = 0;
+//         c_stall[min_id] = 0;
+//      else if(r_send_wait[1] && ~(|r_match_send) )
+//         c_stall[r_mf_core_id] = 0;
    end
                         
    always @(posedge clk) begin
-      r_stall <= reset ? 0 : c_stall;
+      r_stall <= reset ? 0 : ((c_stall | mask_set) & (~mask_res));
    end
    
    
+   wire [NB_COREID-1:0] core_hist_update_target;
+   assign core_hist_update_target = (op[0] == 2'b01) ? min_id : core_id_his[0];
    always @(posedge clk or posedge reset) begin
       if(reset) begin : reset_hist_size
          integer i;
          for(i=0; i<NUM_CORE; i=i+1) core_hist_size[i] <= 0;
       end 
       else begin
-         if(r_min_wait[1] && (|r_match_rcv) ) begin 
-            core_hist_size[min_id] <= LP_hist_size[r_mf_LP_id];
-         end
-         else if(r_send_wait[1]) begin
-            core_hist_size[r_mf_core_id] <= LP_hist_size[r_mf_LP_id];
-         end 
+         if( op[0] == 2'b10 || ( op[0] == 2'b01 && min_id_vld) ) // sent event or (received event has stalling friend)
+            core_hist_size[core_hist_update_target] <= LP_hist_size[lp_id_his[0]];
+         
+//         if(r_min_wait[1] && (|r_match_rcv) ) begin 
+//            core_hist_size[min_id] <= LP_hist_size[r_mf_LP_id];
+//         end
+//         else if(r_send_wait[1]) begin
+//            core_hist_size[r_mf_core_id] <= LP_hist_size[r_mf_LP_id];
+//         end 
       end
    end
    
@@ -212,13 +255,18 @@ module core_monitor #(
     * Find id of the core having minimum timestamp among cores with matching LP ID
     * Use binary reduction to find the smallest node
     */
+    /*
    generate
       genvar i, j;
+      
       for (j = 0; j < NB_COREID; j = j + 1) begin : m_id
          for(i = 0; i < 2**j; i = i+1) begin : cmp
             wire [TIME_WID-1:0]  left, right, min;
+            reg [TIME_WID-1:0]  r_min;
             wire [NB_COREID-1:0]   left_idx, right_idx, min_idx;
-            wire                 l_vld, r_vld, min_vld;
+            reg [NB_COREID-1:0]   r_min_idx;
+            wire l_vld, r_vld, min_vld;
+            reg r_min_vld;
 
             assign min = (l_vld && r_vld) ?
                               (left < right ? left : right) :
@@ -229,7 +277,7 @@ module core_monitor #(
             assign min_vld = (l_vld || r_vld);
 
             if(j+1 == NB_COREID) begin
-               /* Top level, assign from input signals */
+              /* Top level, assign from input signals *//*
                assign l_vld = r_match_rcv[i*2];
                assign left = r_mf_core_times[i*2];
                assign left_idx = {i, 1'b0};
@@ -238,21 +286,242 @@ module core_monitor #(
                assign right_idx = {i, 1'b1};
             end
             else begin
-               assign l_vld = m_id[j+1].cmp[i*2].min_vld;
-               assign left = m_id[j+1].cmp[i*2].min;
-               assign left_idx = m_id[j+1].cmp[i*2].min_idx;
-               assign r_vld = m_id[j+1].cmp[i*2 + 1].min_vld;
-               assign right = m_id[j+1].cmp[i*2 + 1].min;
-               assign right_idx = m_id[j+1].cmp[i*2 + 1].min_idx;
+               assign l_vld = m_id[j+1].cmp[i*2].r_min_vld;
+               assign left = m_id[j+1].cmp[i*2].r_min;
+               assign left_idx = m_id[j+1].cmp[i*2].r_min_idx;
+               assign r_vld = m_id[j+1].cmp[i*2 + 1].r_min_vld;
+               assign right = m_id[j+1].cmp[i*2 + 1].r_min;
+               assign right_idx = m_id[j+1].cmp[i*2 + 1].r_min_idx;
+            end
+            
+            always @(posedge clk) begin
+               r_min <= min;
+               r_min_idx <= min_idx;
+               r_min_vld <= min_vld;
             end
          end
       end
 
-      assign min_id = m_id[0].cmp[0].min_idx;
-      assign min_id_vld = m_id[0].cmp[0].min_vld;
+      assign min_id = m_id[0].cmp[0].r_min_idx;
+      assign min_id_vld = m_id[0].cmp[0].r_min_vld;
 
    endgenerate
    
+   */
+   
+   generate
+      genvar i;
+      
+      wire [TIME_WID-1:0]  cmp4_min[0:15];
+      wire [NB_COREID-1:0]   cmp4_min_idx[0:15];
+      wire cmp4_min_vld[0:15];
+      
+      // Level 3
+      wire [TIME_WID-1:0]  cmp3_min[0:7];
+      wire [NB_COREID-1:0]   cmp3_min_idx[0:7];
+      wire cmp3_min_vld[0:7];
+      
+      for(i = 0; i < 8; i = i+1) begin : cmp3
+         wire [TIME_WID-1:0]  left, right, min;
+         reg [TIME_WID-1:0]  r_min;
+         wire [NB_COREID-1:0]   left_idx, right_idx, min_idx;
+         reg [NB_COREID-1:0]   r_min_idx;
+         wire l_vld, r_vld, min_vld;
+         reg r_min_vld;
+
+         assign min = (l_vld && r_vld) ?
+                           (left < right ? left : right) :
+                           (l_vld ? left : right);
+         assign min_idx = (l_vld && r_vld) ?
+                           (left < right ? left_idx : right_idx) :
+                           (l_vld ? left_idx : right_idx);
+         assign min_vld = (l_vld || r_vld);
+
+         if(4 == NB_COREID) begin
+           /* Top level, assign from input signals */
+            assign l_vld = r_match_rcv[i*2];
+            assign left = r_mf_core_times[i*2];
+            assign left_idx = {i, 1'b0};
+            assign r_vld = r_match_rcv[i*2 + 1];
+            assign right = r_mf_core_times[i*2 + 1];
+            assign right_idx = {i, 1'b1};
+         end
+         else begin
+            assign l_vld = cmp4_min_vld[i*2];
+            assign left = cmp4_min[i*2];
+            assign left_idx = cmp4_min_idx[i*2];
+            assign r_vld = cmp4_min_vld[i*2 + 1];
+            assign right = cmp4_min[i*2 + 1];
+            assign right_idx = cmp4_min_idx[i*2 + 1];
+         end
+            
+         always @(posedge clk) begin
+            r_min <= min;
+            r_min_idx <= min_idx;
+            r_min_vld <= min_vld;
+         end
+            
+         assign cmp3_min[i] = r_min;
+         assign cmp3_min_idx[i] = r_min_idx;
+         assign cmp3_min_vld[i] = min_vld;
+      end  
+      
+      // Level 2
+      wire [TIME_WID-1:0]  cmp2_min[0:3];
+      wire [NB_COREID-1:0]   cmp2_min_idx[0:3];
+      wire cmp2_min_vld[0:3];
+      
+      for(i = 0; i < 4; i = i+1) begin : cmp2
+         wire [TIME_WID-1:0]  left, right, min;
+         reg [TIME_WID-1:0]  r_min;
+         wire [NB_COREID-1:0]   left_idx, right_idx, min_idx;
+         reg [NB_COREID-1:0]   r_min_idx;
+         wire l_vld, r_vld, min_vld;
+         reg r_min_vld;
+
+         assign min = (l_vld && r_vld) ?
+                           (left < right ? left : right) :
+                           (l_vld ? left : right);
+         assign min_idx = (l_vld && r_vld) ?
+                           (left < right ? left_idx : right_idx) :
+                           (l_vld ? left_idx : right_idx);
+         assign min_vld = (l_vld || r_vld);
+
+         if(3 == NB_COREID) begin
+           /* Top level, assign from input signals */
+            assign l_vld = r_match_rcv[i*2];
+            assign left = r_mf_core_times[i*2];
+            assign left_idx = {i, 1'b0};
+            assign r_vld = r_match_rcv[i*2 + 1];
+            assign right = r_mf_core_times[i*2 + 1];
+            assign right_idx = {i, 1'b1};
+         end
+         else begin
+            assign l_vld = cmp3_min_vld[i*2];
+            assign left = cmp3_min[i*2];
+            assign left_idx = cmp3_min_idx[i*2];
+            assign r_vld = cmp3_min_vld[i*2 + 1];
+            assign right = cmp3_min[i*2 + 1];
+            assign right_idx = cmp3_min_idx[i*2 + 1];
+         end
+            
+         always @(posedge clk) begin
+            r_min <= min;
+            r_min_idx <= min_idx;
+            r_min_vld <= min_vld;
+         end
+            
+         assign cmp2_min[i] = r_min;
+         assign cmp2_min_idx[i] = r_min_idx;
+         assign cmp2_min_vld[i] = min_vld;
+      end      
+      
+      // Level 1
+      wire [TIME_WID-1:0]  cmp1_min[0:1];
+      wire [NB_COREID-1:0]   cmp1_min_idx[0:1];
+      wire cmp1_min_vld[0:1];
+      
+      for(i = 0; i < 2; i = i+1) begin : cmp1
+         wire [TIME_WID-1:0]  left, right, min;
+         reg [TIME_WID-1:0]  r_min;
+         wire [NB_COREID-1:0]   left_idx, right_idx, min_idx;
+         reg [NB_COREID-1:0]   r_min_idx;
+         wire l_vld, r_vld, min_vld;
+         reg r_min_vld;
+
+         assign min = (l_vld && r_vld) ?
+                           (left < right ? left : right) :
+                           (l_vld ? left : right);
+         assign min_idx = (l_vld && r_vld) ?
+                           (left < right ? left_idx : right_idx) :
+                           (l_vld ? left_idx : right_idx);
+         assign min_vld = (l_vld || r_vld);
+
+         if(2 == NB_COREID) begin
+           /* Top level, assign from input signals */
+            assign l_vld = r_match_rcv[i*2];
+            assign left = r_mf_core_times[i*2];
+            assign left_idx = {i, 1'b0};
+            assign r_vld = r_match_rcv[i*2 + 1];
+            assign right = r_mf_core_times[i*2 + 1];
+            assign right_idx = {i, 1'b1};
+         end
+         else begin
+            assign l_vld = cmp2_min_vld[i*2];
+            assign left = cmp2_min[i*2];
+            assign left_idx = cmp2_min_idx[i*2];
+            assign r_vld = cmp2_min_vld[i*2 + 1];
+            assign right = cmp2_min[i*2 + 1];
+            assign right_idx = cmp2_min_idx[i*2 + 1];
+         end
+            
+         always @(posedge clk) begin
+            r_min <= min;
+            r_min_idx <= min_idx;
+            r_min_vld <= min_vld;
+         end
+            
+         assign cmp1_min[i] = r_min;
+         assign cmp1_min_idx[i] = r_min_idx;
+         assign cmp1_min_vld[i] = min_vld;
+      end
+      
+      // Level 0
+      wire [TIME_WID-1:0]  cmp0_min[0:0];
+      wire [NB_COREID-1:0]   cmp0_min_idx[0:0];
+      wire cmp0_min_vld[0:0];
+      
+      for(i = 0; i < 1; i = i+1) begin : cmp0
+         wire [TIME_WID-1:0]  left, right, min;
+         reg [TIME_WID-1:0]  r_min;
+         wire [NB_COREID-1:0]   left_idx, right_idx, min_idx;
+         reg [NB_COREID-1:0]   r_min_idx;
+         wire l_vld, r_vld, min_vld;
+         reg r_min_vld;
+
+         assign min = (l_vld && r_vld) ?
+                           (left < right ? left : right) :
+                           (l_vld ? left : right);
+         assign min_idx = (l_vld && r_vld) ?
+                           (left < right ? left_idx : right_idx) :
+                           (l_vld ? left_idx : right_idx);
+         assign min_vld = (l_vld || r_vld);
+
+         if(1 == NB_COREID) begin
+           /* Top level, assign from input signals */
+            assign l_vld = r_match_rcv[i*2];
+            assign left = r_mf_core_times[i*2];
+            assign left_idx = {i, 1'b0};
+            assign r_vld = r_match_rcv[i*2 + 1];
+            assign right = r_mf_core_times[i*2 + 1];
+            assign right_idx = {i, 1'b1};
+         end
+         else begin
+            assign l_vld = cmp1_min_vld[i*2];
+            assign left = cmp1_min[i*2];
+            assign left_idx = cmp1_min_idx[i*2];
+            assign r_vld = cmp1_min_vld[i*2 + 1];
+            assign right = cmp1_min[i*2 + 1];
+            assign right_idx = cmp1_min_idx[i*2 + 1];
+         end
+            
+         always @(posedge clk) begin
+            r_min <= min;
+            r_min_idx <= min_idx;
+            r_min_vld <= min_vld;
+         end
+            
+         assign cmp0_min[i] = r_min;
+         assign cmp0_min_idx[i] = r_min_idx;
+         assign cmp0_min_vld[i] = min_vld;
+      end
+      
+      assign min_id = cmp0_min_idx[0];
+      assign min_id_vld = cmp0_min_vld[0];
+      
+   endgenerate
+
+      
    /**
     * Find the minimum timestamp among the active cores
     */
