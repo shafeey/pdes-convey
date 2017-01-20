@@ -19,7 +19,28 @@ int main(int argc, char *argv[])
   uint64_t  *cp_a1;
   uint64_t  *cp_a2;
   uint64_t  *cp_a3;
+  uint64_t  sim_end_time;
   long size = 8;
+
+  // check command line args
+  if (argc == 1) {
+    sim_end_time = 1000;		// default size
+    printf("Simulation will run until GVT = %ld\n", sim_end_time);
+    fflush(stdout);
+  } else if (argc == 2) {
+    size = atoi(argv[1]);
+    if (size > 0) {
+      printf("Simulation will run until GVT = %ld\n", sim_end_time);
+      fflush(stdout);
+    } else {
+      usage (argv[0]);
+      return 0;
+    }
+  }
+  else {
+    usage (argv[0]);
+    return 0;
+  }
   
   // Reserve and attach to the coprocessor
   // The "pdk" personality is the PDK sample vadd personality
@@ -51,7 +72,7 @@ int main(int argc, char *argv[])
 
   uint64_t args[4];
   args[0] = (uint64_t) cp_a0; 
-  args[1] = (uint64_t) cp_a1; 
+  args[1] = sim_end_time;
   args[2] = (uint64_t) cp_a2; 
   args[3] = (uint64_t) cp_a3;
   
@@ -59,7 +80,7 @@ int main(int argc, char *argv[])
   memset((void *)&ds, 0, sizeof(ds));
   for (i=0; i<4; i++) {
     ds.ae[i].aeg_ptr_s = args;
-    ds.ae[i].aeg_cnt_s = 1;
+    ds.ae[i].aeg_cnt_s = 2;
     ds.ae[i].aeg_base_s = 0;
     ds.ae[i].aeg_ptr_r = &gvt[i];
     ds.ae[i].aeg_cnt_r = 1;

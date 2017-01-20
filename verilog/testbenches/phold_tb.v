@@ -1,7 +1,7 @@
 `timescale 1ns/100ps
 module phold_tb;
 
-   localparam SIM_END_TIME = 16000;  // Target GVT value when process returns
+   localparam SIM_END_TIME = 6000;  // Target GVT value when process returns
    localparam NUM_MC_PORTS    = 1;
    localparam MC_RTNCTL_WIDTH = 32;
    localparam TIME_WID = 16;
@@ -30,11 +30,11 @@ module phold_tb;
 
    phold #(
       .NUM_MC_PORTS   (NUM_MC_PORTS   ),
-      .SIM_END_TIME   (SIM_END_TIME   ),
       .MC_RTNCTL_WIDTH(MC_RTNCTL_WIDTH)
    ) dut (
       .clk         (clk         ),
       .rst_n       (rst_n       ),
+      .sim_end     ( SIM_END_TIME ),
       .addr        (addr        ),
       .gvt         (gvt         ),
       .rtn_vld     (rtn_vld     ),

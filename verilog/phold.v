@@ -1,13 +1,13 @@
 module phold #(
    parameter    NUM_MC_PORTS = 1,
    parameter    MC_RTNCTL_WIDTH = 32, // Width of timestamps
-   parameter    SIM_END_TIME = 4000,  // Target GVT value when process returns
    parameter    TIME_WID = 16
    )(
    input clk,
    input rst_n,
 
    input [47:0]	addr,
+   input [TIME_WID-1:0] sim_end,
    output reg [TIME_WID-1:0] gvt,
    output reg rtn_vld,
 
@@ -102,7 +102,7 @@ always @* begin : state_transitions
    READY:
       c_state = RUNNING;
    RUNNING:
-      if(gvt > SIM_END_TIME) begin
+      if(gvt > sim_end) begin
          c_state = FINISHED;
          c_rtn_vld = 1;
       end

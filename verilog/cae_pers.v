@@ -115,7 +115,7 @@ module cae_pers #(
    localparam NA = 8;
    localparam NB = 3;       // Number of bits to represent NAEG
    localparam AEG_ADDR_A1 = 0;  // Array 1 address
-   // localparam AEG_ADDR_A2 = 1;   // Array 2 address
+   localparam AEG_SIM_END_TIME = 1;   // Simulation end target GVT
    // localparam AEG_ADDR_A3 = 2;   // Array 3 address
    // localparam AEG_VECLEN = 3;    // Vector length
    
@@ -281,6 +281,7 @@ module cae_pers #(
     ) inst_phold (
         .clk          ( clk ),
         .rst_n        ( phold_rst_n ),
+		.sim_end      ( aeg[AEG_SIM_END_TIME][15:0] ),
         .addr         ( aeg[AEG_ADDR_A1][47:0] ),
         .gvt          ( phold_gvt ),
         .rtn_vld      ( phold_rtn_vld ),
