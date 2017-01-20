@@ -1,8 +1,8 @@
 /*****************************************************************************/
 //
 // Module	   : cae_pers.vpp
-// Revision	   :  Revision: 1.16  
-// Last Modified On:  Date: 2013-10-29 19:53:40  
+// Revision	   :  Revision: 1.15  
+// Last Modified On:  Date: 2013-10-29 19:02:06  
 // Last Modified By:  Author: gedwards  
 //
 //-----------------------------------------------------------------------------
@@ -16,15 +16,15 @@
 //
 //                   Top-level of vadd personality.  For a complete list of 
 //                   optional ports, see 
-//                   /opt/convey/pdk/<rev>/<platform>/doc/cae_pers.v
+//                   /opt/convey/pdk2/<rev>/<platform>/doc/cae_pers.v
 //
 //-----------------------------------------------------------------------------
 //
-// Copyright (c) 2007-2013 : created by Convey Computer Corp. This model is the
+// Copyright (c) 2007-2014 : created by Convey Computer Corp. This model is the
 // confidential and proprietary property of Convey Computer Corp.
 //
 /*****************************************************************************/
-/*  Id: cae_pers.vpp,v 1.16 2013-10-29 19:53:40 gedwards Exp   */
+/*  Id: cae_pers.vpp,v 1.15 2013-10-29 19:02:06 gedwards Exp   */
 
 `timescale 1 ns / 1 ps
 
@@ -32,7 +32,7 @@
 
 (* keep_hierarchy = "true" *)
 module cae_pers #(
-   parameter    NUM_MC_PORTS = 1,
+   parameter    NUM_MC_PORTS = 16,
    parameter    RTNCTL_WIDTH = 32
 ) (
    //
@@ -104,43 +104,33 @@ module cae_pers #(
 );
 
 `include "pdk_fpga_param.vh"
-`include "aemc_messages.vh"
 
-/*initial begin
-	$dumpfile("dump.vcd");
-	$dumpvars(1, testbench.cae_fpga0.ae_top.core.cae_pers.clk, 
-				testbench.cae_fpga0.ae_top.core.cae_pers.inst_phold,
-				testbench.cae_fpga0.ae_top.core.cae_pers.inst_phold.gen_phold_core[1].phold_core_inst);
-	$dumpoff;
-	#200;
-	$dumpon;
-	#50;
-	$dumpoff;
-end */
-	//**************************************************************************
-	//			   PERSONALITY SPECIFIC LOGIC
-	//**************************************************************************
+   //**************************************************************************
+   //			   PERSONALITY SPECIFIC LOGIC
+   //**************************************************************************
 
-	//
-	// AEG[0..NA-1] Registers
-	//
+   //
+   // AEG[0..NA-1] Registers
+   //
+   localparam NA = 8;
+   localparam NB = 3;		// Number of bits to represent NAEG
+   localparam AEG_ADDR_A1 = 0;	// Array 1 address
+   // localparam AEG_ADDR_A2 = 1;	// Array 2 address
+   // localparam AEG_ADDR_A3 = 2;	// Array 3 address
+   // localparam AEG_VECLEN = 3;	// Vector length
+   
+   localparam AEG_GVT = 4; // GVT return on AEG[1]
 
-	localparam NA = 8;
-	localparam NB = 3;
-	localparam AEG_ADDR_A1 = 0;	// Array 1 address
-	localparam AEG_GVT = 1; // GVT return on AEG[1]
 
-	assign disp_aeg_cnt = NA; // Number of AEG registers implemented in the CAE
+   assign disp_aeg_cnt = NA;
 
-	reg			r_gvt_returned;
-	reg	[63:0]	r_gvt;
-	wire	[63:0]	aeg[NA-1:0];
+   reg			r_gvt_returned;
+   reg	[63:0]	r_gvt;
+   wire	[63:0]	aeg[NA-1:0];
 
-	wire xbar_enabled = MC_XBAR;
+   wire xbar_enabled = MC_XBAR;
 
-	//
-	//	Setting data to aeg
-	//
+   // Setting up data to AEG
    genvar g;
    generate for (g=0; g<NA; g=g+1) begin : g0
       reg [63:0] c_aeg, r_aeg;
@@ -159,41 +149,48 @@ end */
       assign aeg[g] = r_aeg;
    end endgenerate
 
-	// 
-	// Handle calls to correct AEG
-	//
-	reg			r_rtn_vld, r_err_unimpl, r_err_aegidx;
-	reg [63:0]	r_rtn_data;
+   // Handle calls to correct AEG
 
-	wire c_val_aegidx = disp_aeg_idx < NA; 
+   reg		r_rtn_vld, r_err_unimpl, r_err_aegidx;
+   reg [63:0]	r_rtn_data;
 
-	always @(posedge clk) begin
-		r_rtn_vld    <= disp_aeg_rd;
-		r_rtn_data   <= c_val_aegidx ? aeg[disp_aeg_idx[NB-1:0]] : 64'h0;
-		r_err_aegidx <= (disp_aeg_wr || disp_aeg_rd) && !c_val_aegidx;
-		r_err_unimpl <= (disp_inst_vld && disp_inst != 5'd0);
-	end
-	assign disp_rtn_data_vld = r_rtn_vld;
-	assign disp_rtn_data     = r_rtn_data;
+   wire c_val_aegidx = disp_aeg_idx < NA;
 
-	assign disp_exception[1:0] = {r_err_aegidx, r_err_unimpl};
+   always @(posedge clk) begin
+      r_rtn_vld    <= disp_aeg_rd;
+      r_rtn_data   <= c_val_aegidx ? aeg[disp_aeg_idx[NB-1:0]] : 64'h0;
+      r_err_aegidx <= (disp_aeg_wr || disp_aeg_rd) && !c_val_aegidx;
+      r_err_unimpl <= (disp_inst_vld && disp_inst != 5'd0);
+   end
+   assign disp_rtn_data_vld = r_rtn_vld;
+   assign disp_rtn_data     = r_rtn_data;
+
+   assign disp_exception[1:0] = {r_err_aegidx, r_err_unimpl};
+
+   //
+   // Dispatch logic
+   //
+
+   // cae_vadd64 requires arrays to start on a 64 byte boundary to faciliate
+   // using rd64 and wr64 operations
+   //wire c_unaligned_addr = |{aeg[AEG_ADDR_A1][5:0], aeg[AEG_ADDR_A2][5:0], aeg[AEG_ADDR_A3][5:0]};
+
+   wire c_caep00 = disp_inst_vld && disp_inst == 5'd0;
+
+   //wire [NUM_MC_PORTS-1:0] r_sum_ovrflw_vec, r_res_ovrflw_vec, r_sum_vld_vec;
+   reg		r_caep00, r_idle;
+
+   always @(posedge clk) begin
+      r_caep00 <= c_caep00;
+      r_idle   <= disp_idle;
+   end
+
+   assign disp_exception[15:2] = 0;
 
 
-	//
-	// Dispatch logic
-	//
-	wire c_caep00 = disp_inst_vld && disp_inst == 5'd0;
-
-	reg		r_caep00, r_idle;
-   
-	always @(posedge clk) begin
-		r_caep00 <= c_caep00;
-		r_idle <= disp_idle;
-	end
-
-	//
-	// Control state machine
-	//
+   //
+   // Control state machine
+   //
 	localparam 	IDLE = 2'd0,
 				RUNNING = 2'd1,
 				FINISHED = 2'd2;
@@ -226,26 +223,25 @@ end */
 			c_state = IDLE;
 		endcase
 	end
-	
-	// ISE can have issues with global wires attached to D(flop)/I(lut) inputs
-	wire r_reset;
-	FDSE rst (.C(clk),.S(i_reset),.CE(r_reset),.D(!r_reset),.Q(r_reset));
+
+   // ISE can have issues with global wires attached to D(flop)/I(lut) inputs
+   wire r_reset;
+   FDSE rst (.C(clk),.S(i_reset),.CE(r_reset),.D(!r_reset),.Q(r_reset));
 
 	always @(posedge clk) begin
 		r_state <= r_reset ? 2'b0 : c_state;
 		r_gvt_returned <= (c_state == FINISHED);
 		r_gvt <= r_reset ? 64'b0 : {50'b0, c_gvt};
 	end
-	
+
 	wire phold_rst_n = !r_reset && (r_state == RUNNING);
    
-	assign disp_idle  = (r_state == IDLE) && !r_caep00;
-	assign disp_stall = (r_state != IDLE) || c_caep00 || r_caep00;
+   assign disp_idle  = (r_state == IDLE) && !r_caep00;
+   assign disp_stall = (r_state != IDLE) || c_caep00 || r_caep00;
 
    //
    // CSR debug - base address is 0x8000
    //
-   
     localparam	CAE_CSR_STATUS	= 16'd0,  // 0x8000
 		CAE_CSR_GVT	= 16'h1;  // 0x8001
 
@@ -253,17 +249,14 @@ end */
     reg  [63:0]	c_csr_rd_data, r_csr_rd_data;
 
     always @* begin
-		c_csr_rd_ack = csr_rd_vld;
-		c_csr_rd_data = 64'h0;
+	c_csr_rd_ack = csr_rd_vld;
+	c_csr_rd_data = 64'h0;
 
-		case(csr_address)
-			CAE_CSR_STATUS:
-				c_csr_rd_data = {62'b0, r_state};
-			CAE_CSR_GVT:
-				c_csr_rd_data = r_gvt;
-			default:
-				c_csr_rd_data = 64'h0;
-		endcase
+	case(csr_address)
+	CAE_CSR_STATUS: c_csr_rd_data = {61'b0, r_state};
+	CAE_CSR_GVT: c_csr_rd_data = r_gvt;
+	default: 	c_csr_rd_data = 64'h0;
+	endcase
     end
   
     always @(posedge clk) begin
@@ -273,7 +266,7 @@ end */
  
     assign csr_rd_ack = r_csr_rd_ack;
     assign csr_rd_data = r_csr_rd_data;
-	
+
 	// Instantiate phold
 // genvar i;
 // generate for (i=0; i<NUM_MC_PORTS; i=i+1) begin : fp
@@ -311,6 +304,9 @@ end */
 
    // Parameters: 1-Severity: Don't Stop, 2-start check only after negedge of reset
    //assert_never #(1, 2, "***ERROR ASSERT: unimplemented instruction cracked") a0 (.clk(clk), .reset_n(!i_reset), .test_expr(r_unimplemented_inst));
+
+   // Parameters: 0-Severity: Stop, 2-start check only after negedge of reset
+   assert_never #(0, 2, "***ERROR ASSERT: Number of MC Ports must be a power of 2") a1 (.clk(clk), .reset_n(!i_reset), .test_expr(|config_err));
 
     // synopsys translate_on
 
