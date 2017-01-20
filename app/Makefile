@@ -1,10 +1,15 @@
 EXEC = app
 
-all:  $(EXEC)
+CFLAGS += -g -Wall
+CFLAGS += -I/opt/convey/include
 
-$(EXEC):  UserApp.c cpPdes.s
-	cnycc -g UserApp.c cpPdes.s -o $@
+$(EXEC):  LIBS += -L /opt/convey/lib -lwx_runtime
+$(EXEC)_sim:  LIBS += -L /opt/convey/lib -lwx_sim_runtime
+
+all:  $(EXEC) $(EXEC)_sim
+
+$(EXEC) $(EXEC)_sim: UserApp.c 
+	$(CC) $(CFLAGS) UserApp.c $(LIBS) -o $@
 
 clean:
-	rm -f $(EXEC)
-
+	rm -f $(EXEC) $(EXEC)_sim runpdksim.log
