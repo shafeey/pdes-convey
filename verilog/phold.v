@@ -241,6 +241,19 @@ assign hist_dina = hist_data_wr[hist_egnt];
 //      .douta(hist_data_rd)  // output [31 : 0] douta
 //   );
 
+// Buffering history table input and output
+reg [NUM_CORE-1:0] r_hist_vgnt;
+reg [NB_HIST_ADDR-1:0] r_hist_addr;
+reg r_hist_wea;
+reg [HIST_WID-1:0] r_hist_din_val;
+
+always @(posedge clk) begin
+   r_hist_addr <= hist_addr[hist_egnt];
+   r_hist_vgnt <= hist_vgnt;
+   r_hist_wea <= hist_wr_en[hist_egnt] && hist_req_vld;
+   r_hist_din_val <= hist_data_wr[hist_egnt];
+end
+
 hist_table #(
    .WIDTH(HIST_WID),
    .DEPTH(2 ** NB_HIST_ADDR),
@@ -248,9 +261,9 @@ hist_table #(
    )
    history_table(
       .clka (clk ), // input clka
-      .wea  (hist_wea && hist_req_vld), // input [0 : 0] wea
-      .addra(hist_addra), // input [7 : 0] addra
-      .dina (hist_dina), // input [31 : 0] dina
+      .wea  (r_hist_wea), // input [0 : 0] wea
+      .addra(r_hist_addr), // input [7 : 0] addra
+      .dina (r_hist_din_val), // input [31 : 0] dina
       .douta(hist_data_rd)  // output [31 : 0] douta
    );
 
@@ -276,6 +289,8 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
    wire [NB_LPID-1:0] new_event_target;
    wire [TIME_WID-1:0] new_event_time;
 
+   wire t_rq;
+   
    phold_core
     #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ),
       .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH ),
@@ -303,8 +318,8 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .hist_data_rd     ( hist_data_rd ),
       .hist_data_wr     ( hist_data_wr[g] ),
       .hist_wr_en       ( hist_wr_en[g] ),
-      .hist_rq          ( hist_req[g] ),
-      .hist_access_grant( hist_vgnt[g] ),
+      .hist_rq          ( t_rq ), //hist_req[g] ),
+      .hist_access_grant( r_hist_vgnt[g] ),
       .hist_size        ( core_hist_cnt[g*NB_HIST_DEPTH +: NB_HIST_DEPTH]),
 
       .mc_rq_vld        ( p_mc_rq_vld[g] ),
@@ -330,6 +345,10 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
    assign rcv_vld[g] = new_event_ready;
    assign ack = rcv_vgnt[g] & ~q_full & ~queue_busy;
    assign send_vld[g] = ready;
+   
+   // History table timing improvement buffer
+   req_buffer u_reqbuf(clk, t_rq, hist_req[g], hist_vgnt[g], ~rst_n);
+   
 end
 endgenerate
 
