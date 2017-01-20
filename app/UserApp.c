@@ -14,8 +14,11 @@ void usage (char *);
 int main(int argc, char *argv[])
 {
   long i;
-  uint64_t  *gvt;
+  uint64_t  gvt[4];
+  uint64_t  *cp_a0;
   uint64_t  *cp_a1;
+  uint64_t  *cp_a2;
+  uint64_t  *cp_a3;
   long size = 8;
   
   // Reserve and attach to the coprocessor
@@ -37,16 +40,28 @@ int main(int argc, char *argv[])
   }
 
   // Allocate memory on coprocessor
+  wdm_posix_memalign(m_coproc, (void**)&cp_a0, 64, size*128);
+  printf("Address passed to CAE: %p\n", cp_a0);
   wdm_posix_memalign(m_coproc, (void**)&cp_a1, 64, size*128);
   printf("Address passed to CAE: %p\n", cp_a1);
+  wdm_posix_memalign(m_coproc, (void**)&cp_a2, 64, size*128);
+  printf("Address passed to CAE: %p\n", cp_a2);
+  wdm_posix_memalign(m_coproc, (void**)&cp_a3, 64, size*128);
+  printf("Address passed to CAE: %p\n", cp_a3);
 
+  uint64_t args[4];
+  args[0] = (uint64_t) cp_a0; 
+  args[1] = (uint64_t) cp_a1; 
+  args[2] = (uint64_t) cp_a2; 
+  args[3] = (uint64_t) cp_a3;
+  
   wdm_dispatch_t ds;
   memset((void *)&ds, 0, sizeof(ds));
   for (i=0; i<4; i++) {
-    ds.ae[i].aeg_ptr_s = cp_a1;
+    ds.ae[i].aeg_ptr_s = args;
     ds.ae[i].aeg_cnt_s = 1;
     ds.ae[i].aeg_base_s = 0;
-    ds.ae[i].aeg_ptr_r = gvt;
+    ds.ae[i].aeg_ptr_r = &gvt[i];
     ds.ae[i].aeg_cnt_r = 1;
     ds.ae[i].aeg_base_r = 4;
   }
@@ -65,7 +80,7 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
-  printf("Returned gvt = %d\n", *gvt);
+  printf("Returned gvt = %lld\n", gvt[0]);
 
   return 0;
 }

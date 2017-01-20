@@ -363,7 +363,7 @@ module core_monitor #(
             
          assign cmp3_min[i] = r_min;
          assign cmp3_min_idx[i] = r_min_idx;
-         assign cmp3_min_vld[i] = min_vld;
+         assign cmp3_min_vld[i] = r_min_vld;
       end  
       
       // Level 2
@@ -413,7 +413,7 @@ module core_monitor #(
             
          assign cmp2_min[i] = r_min;
          assign cmp2_min_idx[i] = r_min_idx;
-         assign cmp2_min_vld[i] = min_vld;
+         assign cmp2_min_vld[i] = r_min_vld;
       end      
       
       // Level 1
@@ -463,7 +463,7 @@ module core_monitor #(
             
          assign cmp1_min[i] = r_min;
          assign cmp1_min_idx[i] = r_min_idx;
-         assign cmp1_min_vld[i] = min_vld;
+         assign cmp1_min_vld[i] = r_min_vld;
       end
       
       // Level 0
@@ -513,7 +513,7 @@ module core_monitor #(
             
          assign cmp0_min[i] = r_min;
          assign cmp0_min_idx[i] = r_min_idx;
-         assign cmp0_min_vld[i] = min_vld;
+         assign cmp0_min_vld[i] = r_min_vld;
       end
       
       assign min_id = cmp0_min_idx[0];
