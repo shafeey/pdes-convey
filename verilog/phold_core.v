@@ -74,6 +74,8 @@ module phold_core
 	reg [TIME_WID-1:0] cur_event_time;
    reg cur_event_type;
    
+   wire [7:0] fixed_delay = 10;
+   
    reg          c_rq_vld;
    reg          r_rq_vld;
    reg  [2:0]   c_rq_cmd;
@@ -500,7 +502,7 @@ module phold_core
    always @(posedge clk) begin 
       delay_counter <= (r_state == PROC_DELAY) ? delay_counter + 1 : 0; 
    end
-   assign rand_delay_reached = (delay_counter >= rnd[2*(NB_RND/3) +: 4]);
+   assign rand_delay_reached = (delay_counter >= rnd[2*(NB_RND/3) +: 4] + fixed_delay);
 	
 	reg [2:0] counter;
 	always@(posedge clk) begin
