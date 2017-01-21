@@ -21,22 +21,28 @@ int main(int argc, char *argv[])
   uint64_t  *cp_a3;
   uint64_t  sim_end_time;
   uint64_t  num_init_events = 64;
+  uint64_t num_LP = 64;
   long size = 8;
 
   // check command line args
   if (argc == 1) {
     sim_end_time = 1000;		// default size
-    printf("Simulation will run until GVT = %ld\n", sim_end_time);
+    printf("Simulation will run until GVT = %lld\n", sim_end_time);
     fflush(stdout);
   } else if (argc == 2) {
-    size = atoi(argv[1]);
-    if (size > 0) {
-      printf("Simulation will run until GVT = %ld\n", sim_end_time);
+    sim_end_time = atoi(argv[1]);
+    if (sim_end_time > 0) {
+      printf("Simulation will run until GVT = %lld\n", sim_end_time);
       fflush(stdout);
     } else {
       usage (argv[0]);
       return 0;
     }
+  }
+  else if (argc == 4){
+	      sim_end_time = atoi(argv[1]);
+    num_init_events = atoi(argv[2]);
+	num_LP = atoi(argv[3]);
   }
   else {
     usage (argv[0]);
@@ -71,17 +77,20 @@ int main(int argc, char *argv[])
   wdm_posix_memalign(m_coproc, (void**)&cp_a3, 64, size*128);
   printf("Address passed to CAE: %p\n", cp_a3);
 
+  
+  num_LP = num_LP-1;
+  
   uint64_t args[4];
   args[0] = (uint64_t) cp_a0; 
   args[1] = sim_end_time;
   args[2] = num_init_events; 
-  args[3] = (uint64_t) cp_a3;
+  args[3] = num_LP;
   
   wdm_dispatch_t ds;
   memset((void *)&ds, 0, sizeof(ds));
   for (i=0; i<4; i++) {
     ds.ae[i].aeg_ptr_s = args;
-    ds.ae[i].aeg_cnt_s = 2;
+    ds.ae[i].aeg_cnt_s = 4;
     ds.ae[i].aeg_base_s = 0;
     ds.ae[i].aeg_ptr_r = &gvt[i];
     ds.ae[i].aeg_cnt_r = 1;

@@ -7,6 +7,7 @@ module phold_tb;
    localparam TIME_WID = 16;
    localparam RAM_DEPTH = 512;
    localparam NUM_INIT_EVENTS = 64;
+   localparam LP_MASK = 8'hFF;
    
    reg clk;
    reg rst_n;
@@ -37,6 +38,7 @@ module phold_tb;
       .rst_n       (rst_n       ),
       .sim_end     ( SIM_END_TIME ),
       .num_init_events ( NUM_INIT_EVENTS ),
+      .lp_mask     ( LP_MASK ),
       .addr        (addr        ),
       .gvt         (gvt         ),
       .rtn_vld     (rtn_vld     ),

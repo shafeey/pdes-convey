@@ -9,6 +9,7 @@ module phold #(
    input [47:0]	addr,
    input [TIME_WID-1:0] sim_end,
    input [7:0] num_init_events,
+   input [7:0] lp_mask,
    output reg [TIME_WID-1:0] gvt,
    output reg rtn_vld,
 
@@ -162,7 +163,7 @@ assign enq = queue_busy ? 0 :
 //assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
 assign deq = queue_busy ? 0 : ( (r_state == RUNNING) ? (~enq && ~q_empty && core_available) : 0);
 
-assign new_event = (r_state == INIT) ? {init_counter[1 +: NB_LPID], {TIME_WID{1'b0}} } : new_event_data[rcv_egnt];
+assign new_event = (r_state == INIT) ? {(lp_mask & init_counter[1 +: NB_LPID]), {TIME_WID{1'b0}} } : new_event_data[rcv_egnt];
 
 
 /*
@@ -270,6 +271,11 @@ hist_table #(
 
 wire [NB_RAND-1:0] random_in; 
 
+reg [NB_LPID-1:0] r_lp_mask;
+always @(posedge clk)
+   r_lp_mask <= lp_mask[0 +: NB_LPID];
+
+
 wire [NUM_CORE-1:0] p_mc_rq_vld;
 wire [2:0] p_mc_rq_cmd[NUM_CORE-1:0];
 wire [3:0] p_mc_rq_scmd[NUM_CORE-1:0];
@@ -308,6 +314,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .cur_event_msg    ( send_event_data ),
       .global_time      ( gvt ),
       .random_in        ( random_in ),
+      .lp_mask          ( r_lp_mask ),
       .out_event_msg    ( new_event_data[g] ),
       .new_event_ready  ( new_event_ready ),
       .active           ( core_active[g] ),

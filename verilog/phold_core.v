@@ -25,6 +25,8 @@ module phold_core
 	
 	// Receive a random number
 	input [NB_RND-1:0] random_in,
+   
+   input [NB_LPID-1:0] lp_mask,
 	
 	// New generated event
 	output reg new_event_ready,
@@ -512,7 +514,7 @@ module phold_core
 		
 		new_event_ready <= rst_n ? c_event_ready : 0;
 		new_event_time <= cur_event_time + 10 + rnd [0*(NB_RND/3) +: 6]; // Keep at least 10 units time gap between events
-		new_event_target <= rnd[1*(NB_RND/3) +: NB_LPID]; 
+		new_event_target <= rnd[1*(NB_RND/3) +: NB_LPID] & lp_mask; 
 		r_rq_vld <= rst_n ? c_rq_vld : 0; 
 		r_rq_cmd <= c_rq_cmd;
       r_rq_vadr <= c_rq_vadr;
