@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
   uint64_t  sim_end_time;
   uint64_t  num_init_events = 64;
   uint64_t num_LP = 64;
+  uint64_t num_mem_access = 0;
   
   uint64_t report[64];
   long size = 8;
@@ -50,10 +51,11 @@ int main(int argc, char *argv[])
       return 0;
     }
   }
-  else if (argc == 4){
+  else if (argc == 5){
 	      sim_end_time = atoi(argv[1]);
     num_init_events = atoi(argv[2]);
 	num_LP = atoi(argv[3]);
+	num_mem_access = atoi(argv[4]);
   }
   else {
     usage (argv[0]);
@@ -95,7 +97,7 @@ int main(int argc, char *argv[])
   args[0] = (uint64_t) cp_a0; 
   args[1] = sim_end_time;
   args[2] = num_init_events; 
-  args[3] = num_LP;
+  args[3] = num_LP | (num_mem_access << 16);
     
   wdm_dispatch_t ds;
   memset((void *)&ds, 0, sizeof(ds));

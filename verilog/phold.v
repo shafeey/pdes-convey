@@ -9,6 +9,7 @@ module phold #(
    input [TIME_WID-1:0] sim_end,
    input [7:0] num_init_events,
    input [7:0] lp_mask,
+   input [3:0] num_memcall,
    output reg [TIME_WID-1:0] gvt,
    output reg rtn_vld,
 
@@ -281,8 +282,12 @@ hist_table #(
 wire [NB_RAND-1:0] random_in; 
 
 reg [NB_LPID-1:0] r_lp_mask;
-always @(posedge clk)
+reg [3:0] r_num_memcall;
+
+always @(posedge clk) begin
    r_lp_mask <= lp_mask[0 +: NB_LPID];
+   r_num_memcall <= num_memcall[3:0];
+end
 
 
 wire [NUM_CORE-1:0] p_mc_rq_vld;
@@ -329,6 +334,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .global_time      ( gvt ),
       .random_in        ( random_in ),
       .lp_mask          ( r_lp_mask ),
+      .num_memcall      ( r_num_memcall ),
       .out_event_msg    ( new_event_data[g] ),
       .new_event_ready  ( new_event_ready ),
       .active           ( core_active[g] ),

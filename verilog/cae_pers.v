@@ -117,7 +117,7 @@ module cae_pers #(
    localparam AEG_ADDR_A1 = 0;  // Array 1 address
    localparam AEG_SIM_END_TIME = 1;   // Simulation end target GVT
    localparam AEG_NUM_INIT_EVENTS = 2;   // Number of initial events
-   localparam AEG_NUM_LP = 3;    // Number of LP
+   localparam AEG_CONFIG = 3;    // bits 19:16 = num_mem_access, 7:0 = num_lp_mask
    
    localparam AEG_GVT = 5; // GVT return on AEG[1]
    localparam AEG_TOTAL_CYCLES = 6;
@@ -325,6 +325,11 @@ module cae_pers #(
  
     assign csr_rd_ack = r_csr_rd_ack;
     assign csr_rd_data = r_csr_rd_data;
+    
+    reg [63:0] config_bits;
+    always @(posedge clk) begin
+       config_bits <= aeg[AEG_CONFIG];
+    end
 
     // Instantiate phold
 // genvar i;
@@ -337,7 +342,8 @@ module cae_pers #(
 		.sim_end      ( aeg[AEG_SIM_END_TIME][15:0] ),
         .addr         ( aeg[AEG_ADDR_A1][47:0] ),
 		.num_init_events ( aeg[AEG_NUM_INIT_EVENTS][7:0] ),
-		.lp_mask      ( aeg[AEG_NUM_LP][7:0] ),
+		.lp_mask      ( config_bits[7:0] ),
+      .num_memcall  ( config_bits[19:16] ),
         .gvt          ( phold_gvt ),
         .rtn_vld      ( phold_rtn_vld ),
         

@@ -27,6 +27,7 @@ module phold_core
 	input [NB_RND-1:0] random_in,
    
    input [NB_LPID-1:0] lp_mask,
+   input [3:0] num_memcall,
 	
 	// New generated event
 	output reg new_event_ready,
@@ -107,6 +108,8 @@ module phold_core
    	reg [NB_RND-1:0] rnd;
 	reg [TIME_WID-1:0] gvt;
    
+   localparam MEM_CNT = 1;
+   
    // MC interface
 	assign mc_rq_vld = r_rq_vld;
 	assign mc_rq_cmd = r_rq_cmd;
@@ -164,6 +167,8 @@ module phold_core
    
    reg r_core_ready;
    assign active = ~r_core_ready;
+   
+   reg [3:0] ld_mem_counter, st_mem_counter, ld_rtn_counter;
    
    reg [NB_HIST_ADDR-1:0] c_hist_addr, r_hist_addr;
    reg [HIST_WID-1:0] c_hist_data_wr;
@@ -223,7 +228,7 @@ module phold_core
       
 		READ_HIST: begin
          if(c_hist_done)
-            c_state = PROC_DELAY;
+            c_state = LD_MEM;
          
 //         if(r_hist_size == 0) begin
 //            c_state = PROC_DELAY;
@@ -246,18 +251,25 @@ module phold_core
       end
       
 		LD_MEM: begin
-			if(~r_mc_rq_stall) begin
-            c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE;
-				c_rq_vld = 1'b1;
-				c_rq_cmd = AEMC_CMD_RD8;
-			end
-			if(mem_gnt) begin
+         if(ld_mem_counter < num_memcall) begin
+   			if(~r_mc_rq_stall) begin
+               c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE;
+   				c_rq_vld = 1'b1;
+   				c_rq_cmd = AEMC_CMD_RD8;
+   			end
+   			if(mem_gnt) begin
+               if(core_id == 0)
+                  $display("**Info: mem ld in 0\n");
+   //            c_state = LD_RTN;
+               c_rq_vld = 1'b0;
+   			end
+         end
+         else
             c_state = LD_RTN;
-            c_rq_vld = 1'b0;
-			end
-		end
+      end
+      
 		LD_RTN: begin
-			if(ld_rtn_vld) begin
+			if(ld_rtn_counter == num_memcall) begin
             c_state = PROC_DELAY;
          end
       end
@@ -276,7 +288,7 @@ module phold_core
 
  		WRITE_HIST: begin
           if(c_hist_done)
-             c_state = SEND_EVT;
+             c_state = ST_MEM;
 //         if(hist_buf_empty) begin
 //            c_hist_cnt = 0;
 //            c_hist_wr = 0;
@@ -303,18 +315,22 @@ module phold_core
 		end
       
 		ST_MEM: begin
-			if(~r_mc_rq_stall) begin
-            c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE;
-				c_rq_vld = 1'b1;
-				c_rq_cmd = AEMC_CMD_WR8;
-			end
-			if(mem_gnt) begin
-				c_state = ST_RTN;
-				c_rq_vld = 0;
-			end
+         if(ld_mem_counter < num_memcall) begin
+      			if(~r_mc_rq_stall) begin
+                  c_rq_vadr = addr + cur_lp_id * NUM_MEM_BYTE;
+      				c_rq_vld = 1'b1;
+      				c_rq_cmd = AEMC_CMD_WR8;
+      			end
+      			if(mem_gnt) begin
+      //				c_state = ST_RTN;
+      				c_rq_vld = 0;
+               end
+         end
+         else
+            c_state = ST_RTN;
 		end
 		ST_RTN: begin
-         if(st_rtn_vld) begin
+			if(ld_rtn_counter == num_memcall) begin
 				c_state = SEND_EVT;
 			end
       end
@@ -459,6 +475,23 @@ module phold_core
       r_hist_data_vld <= (hist_access_grant && r_state == READ_HIST) ;
       r_hist_data_wr <= hist_buf_data;
    end
+   
+   // Memory access control
+   always @(posedge clk) begin
+      if (~rst_n || r_state == IDLE || r_state == GEN_EVT) begin
+         ld_mem_counter <= 0;
+         st_mem_counter <= 0;
+         ld_rtn_counter <= 0;
+      end
+      else begin
+         if(ld_rtn_vld || st_rtn_vld)
+            ld_rtn_counter <= ld_rtn_counter  + 1;
+         
+         if(mem_gnt)
+            ld_mem_counter <= ld_mem_counter + 1;
+      end
+   end
+   
    
    // Superimpose the buffer size on message, to be read by core monitor  
    assign out_event_msg = r_out_event_msg | {hist_buf_ret_size, {MSG_WID-NB_HIST_DEPTH{1'b0}} };
