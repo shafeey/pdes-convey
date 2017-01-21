@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   uint64_t  num_init_events = 64;
   uint64_t num_LP = 64;
   
-  uint64_t *report;
+  uint64_t *report[64];
   long size = 8;
 
   // check command line args
@@ -90,11 +90,9 @@ int main(int argc, char *argv[])
   args[1] = sim_end_time;
   args[2] = num_init_events; 
   args[3] = num_LP;
-  
-  report = malloc(sizeof(uint64_t*) *64);
-  
-  report[0] = &gvt;
-  report[1] = &total_cycles;
+    
+  report[0] = (uint64_t) &gvt;
+  report[1] = (uint64_t) &total_cycles;
   
   wdm_dispatch_t ds;
   memset((void *)&ds, 0, sizeof(ds));
@@ -102,7 +100,7 @@ int main(int argc, char *argv[])
     ds.ae[i].aeg_ptr_s = args;
     ds.ae[i].aeg_cnt_s = 4;
     ds.ae[i].aeg_base_s = 0;
-    ds.ae[i].aeg_ptr_r = report[i*16];
+    ds.ae[i].aeg_ptr_r = &report[i*16];
     ds.ae[i].aeg_cnt_r = 2;
     ds.ae[i].aeg_base_r = 5;
   }
@@ -123,8 +121,6 @@ int main(int argc, char *argv[])
 
   printf("Returned gvt = %lld\n", (long long) gvt);
   printf("Total cycle = %lld\n", (long long) total_cycles);
-
-  free(report);
 
   return 0;
 }
