@@ -153,6 +153,8 @@ module cae_pers #(
             c_aeg = r_gvt;
          else if (g==AEG_TOTAL_CYCLES)
             c_aeg = r_total_cycles;
+         else if (g==AEG_TOTAL_EVENTS)
+            c_aeg = r_total_events;
       end
 
       always @(posedge clk) begin

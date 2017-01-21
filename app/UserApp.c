@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 
   printf("Returned GVT = %lld\n", (long long) gvt);
   printf("Total cycles = %lld\n", (long long) total_cycles);
-  printf("Total cycles = %lld\n", (long long) total_events);
+  printf("Total events = %lld\n", (long long) total_events);
 
 
   return 0;
