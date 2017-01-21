@@ -123,6 +123,7 @@ module cae_pers #(
    localparam AEG_TOTAL_CYCLES = 6;
    localparam AEG_TOTAL_EVENTS = 7;
    localparam AEG_TOTAL_STALLS = 8;
+   localparam AEG_TOTAL_ANTIMSG = 9;
    
    
    // Report collection
@@ -135,6 +136,8 @@ module cae_pers #(
    reg [63:0] r_total_stalls;
    wire [63:0] total_stalls;
    
+   reg [63:0] r_total_antimsg;
+   wire [63:0] total_antimsg;
 
    assign disp_aeg_cnt = NA;
 
@@ -161,6 +164,8 @@ module cae_pers #(
             c_aeg = r_total_events;
          else if (g==AEG_TOTAL_STALLS)
             c_aeg = r_total_stalls;
+         else if (g==AEG_TOTAL_ANTIMSG)
+            c_aeg = r_total_antimsg;
       end
 
       always @(posedge clk) begin
@@ -264,6 +269,7 @@ module cae_pers #(
        r_total_cycles <= r_reset ? 0 : (phold_rtn_vld ? total_cycles : r_total_cycles);
        r_total_stalls <= r_reset ? 0 : (phold_rtn_vld ? total_stalls : r_total_stalls);
        r_total_events <= r_reset ? 0 : (phold_rtn_vld ? total_events : r_total_events);
+       r_total_antimsg <= r_reset ? 0 : (phold_rtn_vld ? total_antimsg : r_total_antimsg);
     end
     
     wire phold_rst_n = !r_reset && (r_state == RUNNING) && (i_aeid == 0);
@@ -333,6 +339,7 @@ module cae_pers #(
         .total_cycles ( total_cycles ),
         .total_stalls ( total_stalls ),
         .total_events ( total_events ),
+        .total_antimsg ( total_antimsg ),
         
         .rst_n        ( phold_rst_n )
     );

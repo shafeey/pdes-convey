@@ -32,6 +32,7 @@ module phold #(
    output [63:0] total_cycles,
    output [63:0] total_events,
    output [63:0] total_stalls,
+   output [63:0] total_antimsg,
    
    input rst_n
    );
@@ -512,12 +513,22 @@ end
 /* Total Cycles*/
 reg [63:0] r_num_cycles;
 reg [63:0] r_total_events;
+reg [63:0] r_anti_msg_total;
+reg r_evt_sent;
+reg r_cncl_evt;
+
 always @(posedge clk) begin
+   r_evt_sent = deq;
+   r_cncl_evt <= ~queue_out_temp[0];
+   
    r_num_cycles <= rst_n ? ( (r_state == RUNNING) ? r_num_cycles + 1 : r_num_cycles) : 0;
-   r_total_events <= rst_n ? ( deq ? r_total_events + 1 : r_total_events ) : 0;
+   r_total_events <= rst_n ? ( r_evt_sent ? r_total_events + 1 : r_total_events ) : 0;
+   r_anti_msg_total <= rst_n ? (r_evt_sent && r_cncl_evt ? r_anti_msg_total + 1 : r_anti_msg_total) : 0; 
+   
 end
 assign total_cycles = r_num_cycles;
 assign total_events = r_total_events;
+assign total_antimsg = r_anti_msg_total;
 
 reg [NUM_CORE-1:0] r_core_done, r_core_stalled;
 reg [NB_COREID-1:0] r_last_rcv_gnt;

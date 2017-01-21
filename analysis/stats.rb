@@ -54,8 +54,9 @@ File.foreach(filename) {|line|
    end
 }
 
-puts "Total processed = " + total.to_s
-puts "Cancellation messages = " + cncl.to_s + " (#{'%.2f' % (cncl*100.0/total)}%)"
 qc.each_index{|x|
    puts "#{x}: #{qc[x]}"
 }
+
+puts "Total processed = " + total.to_s
+puts "Cancellation messages = " + cncl.to_s + " (#{'%.2f' % (cncl*100.0/total)}%)"

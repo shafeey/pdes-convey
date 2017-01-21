@@ -34,6 +34,7 @@ module phold_tb;
    wire [63:0] total_cycles;
    wire [63:0] total_events;
    wire [63:0] total_stalls;
+   wire [63:0] total_antimsg;
 
    phold #(
       .NUM_MC_PORTS   (NUM_MC_PORTS   ),
@@ -50,6 +51,7 @@ module phold_tb;
       .total_cycles ( total_cycles),
       .total_events ( total_events),
       .total_stalls ( total_stalls),
+      .total_antimsg ( total_antimsg),
       
       .rtn_vld     (rtn_vld     ),
       .mc_rq_vld   (mc_rq_vld   ),
@@ -105,6 +107,7 @@ module phold_tb;
       $display("Simulation ended at GVT = %d", gvt);
       $display("Total cycles = %d", total_cycles);
       $display("Total events = %d", total_events);
+      $display("Total anti-messages = %d", total_antimsg );
       $display("Total stalls = %d", total_stalls - (7*total_events) );
       $finish;
    end
