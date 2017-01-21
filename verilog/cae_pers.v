@@ -181,9 +181,9 @@ module cae_pers #(
          else if (g==AEG_TOTAL_QCONF)
             c_aeg = r_total_qconf;
          else if (g==AEG_AVG_PROC)
-            c_aeg = r_total_qconf;
+            c_aeg = r_avg_proc_time;
          else if (g==AEG_AVG_MEM)
-            c_aeg = r_total_qconf;
+            c_aeg = r_avg_mem_time;
       end
 
       always @(posedge clk) begin
