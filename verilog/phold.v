@@ -132,7 +132,7 @@ always @(posedge clk or negedge rst_n) begin
    end
    else begin
       r_state <= c_state;
-      rtn_vld <= c_rtn_vld;
+      rtn_vld <= c_rtn_vld || q_full;
    end
 end
 

@@ -128,6 +128,8 @@ module cae_pers #(
    localparam AEG_AVG_PROC = 11;
    localparam AEG_AVG_MEM = 12;
    
+   localparam RESCUE_TIME = 32'hFFFF_FFFF;
+   
    
    // Report collection
    reg [63:0] r_total_cycles;
@@ -230,6 +232,16 @@ module cae_pers #(
 
    assign disp_exception = 0;
 
+   // Rescue counter
+   reg [31:0] rescue_timer;
+   always @(posedge clk) begin
+      if(i_reset) begin
+         rescue_timer <= 0;
+      end
+      else
+         rescue_timer = rescue_timer + 1;
+   end
+
 
    //
    // Control state machine
@@ -254,7 +266,7 @@ module cae_pers #(
         end
         RUNNING: begin
             if(i_aeid == 4'h0) begin
-                if(phold_rtn_vld) begin
+                if(phold_rtn_vld || rescue_timer == RESCUE_TIME) begin
                     c_state = FINISHED;
                     c_gvt = phold_gvt;
                     $display("simulation: Simulation state changed to FINISHED. GVT is %d", c_gvt);
