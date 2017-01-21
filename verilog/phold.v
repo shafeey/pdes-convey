@@ -4,7 +4,6 @@ module phold #(
    parameter    TIME_WID = 16
    )(
    input clk,
-   input rst_n,
 
    input [47:0]	addr,
    input [TIME_WID-1:0] sim_end,
@@ -30,7 +29,10 @@ module phold #(
    input  [63:0]	mc_rs_data,
    output			mc_rs_stall,
    
-   output [63:0] total_cycles
+   output [63:0] total_cycles,
+   output [63:0] total_events,
+   
+   input rst_n
    );
 
    localparam MSG_WID = 32;         // Width of event message
@@ -507,11 +509,14 @@ end
 
 // Counts And Statistics
 /* Total Cycles*/
-reg [63:0] num_cycles;
+reg [63:0] r_num_cycles;
+reg [63:0] r_total_events;
 always @(posedge clk) begin
-   num_cycles <= rst_n ? ( (r_state == RUNNING) ? num_cycles + 1 : num_cycles) : 0;
+   r_num_cycles <= rst_n ? ( (r_state == RUNNING) ? r_num_cycles + 1 : r_num_cycles) : 0;
+   r_total_events <= rst_n ? ( deq ? r_total_events + 1 : r_total_events ) : 0;
 end
-assign total_cycles = num_cycles;
+assign total_cycles = r_num_cycles;
+assign total_events = r_total_events;
 
  
 

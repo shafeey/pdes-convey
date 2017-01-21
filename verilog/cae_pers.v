@@ -121,10 +121,15 @@ module cae_pers #(
    
    localparam AEG_GVT = 5; // GVT return on AEG[1]
    localparam AEG_TOTAL_CYCLES = 6;
+   localparam AEG_TOTAL_EVENTS = 7;
+   
    
    // Report colelction
    reg [63:0] r_total_cycles;
    wire [63:0] total_cycles;
+   
+   reg [63:0] r_total_events;
+   wire [63:0] total_events;
 
 
    assign disp_aeg_cnt = NA;
@@ -249,6 +254,7 @@ module cae_pers #(
     // Report back
     always @(posedge clk) begin
        r_total_cycles <= r_reset ? 0 : (phold_rtn_vld ? total_cycles : r_total_cycles);
+       r_total_events <= r_reset ? 0 : (phold_rtn_vld ? total_events : r_total_events);
     end
     
     wire phold_rst_n = !r_reset && (r_state == RUNNING) && (i_aeid == 0);
@@ -316,6 +322,7 @@ module cae_pers #(
         .mc_rs_stall  ( mc_rs_stall ),
         
         .total_cycles ( total_cycles ),
+        .total_events ( total_events ),
         
         .rst_n        ( phold_rst_n )
     );

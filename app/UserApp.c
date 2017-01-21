@@ -16,7 +16,8 @@ int main(int argc, char *argv[])
   long i;
   uint64_t  gvt;
   uint64_t  total_cycles;
-  
+  uint64_t  total_events;
+
   
   uint64_t  *cp_a0;
   uint64_t  *cp_a1;
@@ -98,7 +99,7 @@ int main(int argc, char *argv[])
     ds.ae[i].aeg_cnt_s = 4;
     ds.ae[i].aeg_base_s = 0;
     ds.ae[i].aeg_ptr_r = &report[i*16];
-    ds.ae[i].aeg_cnt_r = 2;
+    ds.ae[i].aeg_cnt_r = 3;
     ds.ae[i].aeg_base_r = 5;
   }
 
@@ -118,9 +119,12 @@ int main(int argc, char *argv[])
 
   gvt = report[0];
   total_cycles = report[1];
-  
+  total_events = report[2];
+
   printf("Returned GVT = %lld\n", (long long) gvt);
   printf("Total cycles = %lld\n", (long long) total_cycles);
+  printf("Total cycles = %lld\n", (long long) total_events);
+
 
   return 0;
 }
