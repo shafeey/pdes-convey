@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
     ds.ae[i].aeg_cnt_s = 4;
     ds.ae[i].aeg_base_s = 0;
     ds.ae[i].aeg_ptr_r = &report[i*16];
-    ds.ae[i].aeg_cnt_r = 3;
+    ds.ae[i].aeg_cnt_r = 4;
     ds.ae[i].aeg_base_r = 5;
   }
 

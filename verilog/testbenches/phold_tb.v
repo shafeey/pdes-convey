@@ -29,6 +29,11 @@ module phold_tb;
    wire [MC_RTNCTL_WIDTH-1:0] mc_rs_rtnctl;
    wire [63:0] mc_rs_data;
    wire mc_rs_stall;
+   
+   
+   wire [63:0] total_cycles;
+   wire [63:0] total_events;
+   wire [63:0] total_stalls;
 
    phold #(
       .NUM_MC_PORTS   (NUM_MC_PORTS   ),
@@ -41,6 +46,11 @@ module phold_tb;
       .lp_mask     ( LP_MASK ),
       .addr        (addr        ),
       .gvt         (gvt         ),
+      
+      .total_cycles ( total_cycles),
+      .total_events ( total_events),
+      .total_stalls ( total_stalls),
+      
       .rtn_vld     (rtn_vld     ),
       .mc_rq_vld   (mc_rq_vld   ),
       .mc_rq_cmd   (mc_rq_cmd   ),
@@ -93,6 +103,9 @@ module phold_tb;
       
       @(posedge rtn_vld)
       $display("Simulation ended at GVT = %d", gvt);
+      $display("Total cycles = %d", total_cycles);
+      $display("Total events = %d", total_events);
+      $display("Total stalls = %d", total_stalls - (7*total_events) );
       $finish;
    end
    

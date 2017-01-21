@@ -539,7 +539,7 @@ generate
 endgenerate
 
 always @(posedge clk) begin
-   r_core_done <= rcv_vld;
+   r_core_done <= rcv_vgnt;
    r_core_stalled <= stall;
    r_last_rcv_gnt <= rcv_egnt;
    
