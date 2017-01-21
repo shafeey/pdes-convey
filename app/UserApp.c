@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   uint64_t  num_init_events = 64;
   uint64_t num_LP = 64;
   
-  uint64_t *report[64];
+  uint64_t report[64];
   long size = 8;
 
   // check command line args
@@ -91,8 +91,8 @@ int main(int argc, char *argv[])
   args[2] = num_init_events; 
   args[3] = num_LP;
     
-  report[0] = (uint64_t) &gvt;
-  report[1] = (uint64_t) &total_cycles;
+  gvt = report[0];
+  total_cycles = report[1];
   
   wdm_dispatch_t ds;
   memset((void *)&ds, 0, sizeof(ds));
