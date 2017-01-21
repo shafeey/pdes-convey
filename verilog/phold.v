@@ -28,7 +28,9 @@ module phold #(
    input  [3:0]	mc_rs_scmd,
    input  [MC_RTNCTL_WIDTH-1:0]	mc_rs_rtnctl,
    input  [63:0]	mc_rs_data,
-   output			mc_rs_stall
+   output			mc_rs_stall,
+   
+   output [63:0] total_cycles
    );
 
    localparam MSG_WID = 32;         // Width of event message
@@ -502,6 +504,15 @@ always @(posedge clk) begin
    end
    
 end 
+
+// Counts And Statistics
+/* Total Cycles*/
+reg [63:0] num_cycles;
+always @(posedge clk) begin
+   num_cycles <= rst_n ? ( (r_state == RUNNING) ? num_cycles + 1 : num_cycles) : 0;
+end
+assign total_cycles = num_cycles;
+
  
 
 `ifdef TRACE

@@ -119,7 +119,12 @@ module cae_pers #(
    localparam AEG_NUM_INIT_EVENTS = 2;   // Number of initial events
    localparam AEG_NUM_LP = 3;    // Number of LP
    
-   localparam AEG_GVT = 4; // GVT return on AEG[1]
+   localparam AEG_GVT = 5; // GVT return on AEG[1]
+   localparam AEG_TOTAL_CYCLES = 6;
+   
+   // Report colelction
+   reg [63:0] r_total_cycles;
+   wire [63:0] total_cycles;
 
 
    assign disp_aeg_cnt = NA;
@@ -141,6 +146,8 @@ module cae_pers #(
             c_aeg = disp_aeg_wr_data;
          else if (g==AEG_GVT && r_gvt_returned)
             c_aeg = r_gvt;
+         else if (g==AEG_TOTAL_CYCLES)
+            c_aeg = r_total_cycles;
       end
 
       always @(posedge clk) begin
@@ -238,7 +245,12 @@ module cae_pers #(
         r_gvt_returned <= (c_state == FINISHED);
         r_gvt <= r_reset ? 64'b0 : {50'b0, c_gvt};
     end
-
+    
+    // Report back
+    always @(posedge clk) begin
+       r_total_cycles <= r_reset ? 0 : (phold_rtn_vld ? total_cycles : r_total_cycles);
+    end
+    
     wire phold_rst_n = !r_reset && (r_state == RUNNING) && (i_aeid == 0);
    
    assign disp_idle  = (r_state == IDLE) && !r_caep00;
@@ -280,7 +292,6 @@ module cae_pers #(
         .MC_RTNCTL_WIDTH    ( RTNCTL_WIDTH )
     ) inst_phold (
         .clk          ( clk ),
-        .rst_n        ( phold_rst_n ),
 		.sim_end      ( aeg[AEG_SIM_END_TIME][15:0] ),
         .addr         ( aeg[AEG_ADDR_A1][47:0] ),
 		.num_init_events ( aeg[AEG_NUM_INIT_EVENTS][7:0] ),
@@ -302,7 +313,11 @@ module cae_pers #(
         .mc_rs_scmd   ( mc_rs_scmd ),
         .mc_rs_rtnctl ( mc_rs_rtnctl ),
         .mc_rs_data   ( mc_rs_data ),
-        .mc_rs_stall  ( mc_rs_stall )
+        .mc_rs_stall  ( mc_rs_stall ),
+        
+        .total_cycles ( total_cycles ),
+        
+        .rst_n        ( phold_rst_n )
     );
 // end endgenerate
 
