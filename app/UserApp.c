@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
   printf("Total stall cycles = %lld\n", (long long) total_stalls);
   printf("Contention for queue = %lld\n", (long long) total_qconf);
   printf("Total active time per core = %lld\n", (long long) avg_proc_time);
-  printf("Total memory processing time per core = %lld\n", (long long) avg_mem_time);
+  printf("Total memory access time per core = %lld\n", (long long) avg_mem_time);
 
 
   return 0;
