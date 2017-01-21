@@ -31,6 +31,7 @@ module phold #(
    
    output [63:0] total_cycles,
    output [63:0] total_events,
+   output [63:0] total_stalls,
    
    input rst_n
    );
@@ -518,7 +519,39 @@ end
 assign total_cycles = r_num_cycles;
 assign total_events = r_total_events;
 
- 
+reg [NUM_CORE-1:0] r_core_done, r_core_stalled;
+reg [NB_COREID-1:0] r_last_rcv_gnt;
+reg [63:0] core_stall_time[0:NUM_CORE-1];
+reg [63:0] r_total_stalls;
+
+generate
+   genvar r;
+   for(r = 0; r < NUM_CORE; r = r+1) begin
+      always @(posedge clk) begin
+         if(~rst_n)
+            core_stall_time[r] <= 0;
+         else if(r_core_done[r])
+            core_stall_time[r] <= 0;
+         else if(r_core_stalled[r])
+            core_stall_time[r] <= core_stall_time[r] + 1;
+      end
+   end
+endgenerate
+
+always @(posedge clk) begin
+   r_core_done <= rcv_vld;
+   r_core_stalled <= stall;
+   r_last_rcv_gnt <= rcv_egnt;
+   
+   if(~rst_n) begin
+      r_total_stalls <= 0;
+   end
+   else
+      r_total_stalls <= r_total_stalls + core_stall_time[r_last_rcv_gnt];
+      
+end
+
+assign total_stalls = r_total_stalls;
 
 `ifdef TRACE
  always @(posedge clk) begin : trace

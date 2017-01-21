@@ -112,8 +112,8 @@ module cae_pers #(
    //
    // AEG[0..NA-1] Registers
    //
-   localparam NA = 8;
-   localparam NB = 3;       // Number of bits to represent NAEG
+   localparam NA = 16;
+   localparam NB = 4;       // Number of bits to represent NAEG
    localparam AEG_ADDR_A1 = 0;  // Array 1 address
    localparam AEG_SIM_END_TIME = 1;   // Simulation end target GVT
    localparam AEG_NUM_INIT_EVENTS = 2;   // Number of initial events
@@ -122,15 +122,19 @@ module cae_pers #(
    localparam AEG_GVT = 5; // GVT return on AEG[1]
    localparam AEG_TOTAL_CYCLES = 6;
    localparam AEG_TOTAL_EVENTS = 7;
+   localparam AEG_TOTAL_STALLS = 8;
    
    
-   // Report colelction
+   // Report collection
    reg [63:0] r_total_cycles;
    wire [63:0] total_cycles;
    
    reg [63:0] r_total_events;
    wire [63:0] total_events;
 
+   reg [63:0] r_total_stalls;
+   wire [63:0] total_stalls;
+   
 
    assign disp_aeg_cnt = NA;
 
@@ -155,6 +159,8 @@ module cae_pers #(
             c_aeg = r_total_cycles;
          else if (g==AEG_TOTAL_EVENTS)
             c_aeg = r_total_events;
+         else if (g==AEG_TOTAL_STALLS)
+            c_aeg = r_total_stalls;
       end
 
       always @(posedge clk) begin
@@ -256,6 +262,7 @@ module cae_pers #(
     // Report back
     always @(posedge clk) begin
        r_total_cycles <= r_reset ? 0 : (phold_rtn_vld ? total_cycles : r_total_cycles);
+       r_total_stalls <= r_reset ? 0 : (phold_rtn_vld ? total_stalls : r_total_stalls);
        r_total_events <= r_reset ? 0 : (phold_rtn_vld ? total_events : r_total_events);
     end
     
@@ -324,6 +331,7 @@ module cae_pers #(
         .mc_rs_stall  ( mc_rs_stall ),
         
         .total_cycles ( total_cycles ),
+        .total_stalls ( total_stalls ),
         .total_events ( total_events ),
         
         .rst_n        ( phold_rst_n )

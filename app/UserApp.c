@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
   uint64_t  gvt;
   uint64_t  total_cycles;
   uint64_t  total_events;
+  uint64_t  total_stalls;
 
   
   uint64_t  *cp_a0;
@@ -120,11 +121,12 @@ int main(int argc, char *argv[])
   gvt = report[0];
   total_cycles = report[1];
   total_events = report[2];
+  total_stalls = report[3];
 
   printf("Returned GVT = %lld\n", (long long) gvt);
   printf("Total cycles = %lld\n", (long long) total_cycles);
   printf("Total events = %lld\n", (long long) total_events);
-
+  printf("Total stall cycles = %lld\n", (long long) total_stalls);
 
   return 0;
 }
