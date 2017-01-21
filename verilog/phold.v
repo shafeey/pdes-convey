@@ -33,6 +33,7 @@ module phold #(
    output [63:0] total_events,
    output [63:0] total_stalls,
    output [63:0] total_antimsg,
+   output [63:0] total_q_conf,
    
    input rst_n
    );
@@ -514,21 +515,35 @@ end
 reg [63:0] r_num_cycles;
 reg [63:0] r_total_events;
 reg [63:0] r_anti_msg_total;
+reg [63:0] r_q_conflict;
 reg r_evt_sent;
+reg r_evt_rcv;
 reg r_cncl_evt;
+
+reg [NUM_CORE-1:0] r_req_s, r_req_r;
+wire [NUM_CORE-1:0] r_req = r_req_r; // | r_req_s);
 
 always @(posedge clk) begin
    r_evt_sent = deq;
+   r_evt_rcv = enq;
    r_cncl_evt <= ~queue_out_temp[0];
+   r_req_s <= send_vld;
+   r_req_r <= rcv_vld;
+   
+   r_q_conflict <= rst_n ? 
+                        ( ( (r_evt_rcv || r_evt_sent) && |(r_req && (r_req - 1)) ) ? r_q_conflict + 1 : r_q_conflict )
+                        : 0;
    
    r_num_cycles <= rst_n ? ( (r_state == RUNNING) ? r_num_cycles + 1 : r_num_cycles) : 0;
    r_total_events <= rst_n ? ( r_evt_sent ? r_total_events + 1 : r_total_events ) : 0;
    r_anti_msg_total <= rst_n ? (r_evt_sent && r_cncl_evt ? r_anti_msg_total + 1 : r_anti_msg_total) : 0; 
    
 end
+
 assign total_cycles = r_num_cycles;
 assign total_events = r_total_events;
 assign total_antimsg = r_anti_msg_total;
+assign total_q_conf = r_q_conflict;
 
 reg [NUM_CORE-1:0] r_core_done, r_core_stalled;
 reg [NB_COREID-1:0] r_last_rcv_gnt;

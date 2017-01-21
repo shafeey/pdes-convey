@@ -35,6 +35,7 @@ module phold_tb;
    wire [63:0] total_events;
    wire [63:0] total_stalls;
    wire [63:0] total_antimsg;
+   wire [63:0] total_q_conf;
 
    phold #(
       .NUM_MC_PORTS   (NUM_MC_PORTS   ),
@@ -52,6 +53,7 @@ module phold_tb;
       .total_events ( total_events),
       .total_stalls ( total_stalls),
       .total_antimsg ( total_antimsg),
+      .total_q_conf ( total_q_conf ),
       
       .rtn_vld     (rtn_vld     ),
       .mc_rq_vld   (mc_rq_vld   ),
@@ -109,6 +111,7 @@ module phold_tb;
       $display("Total events = %d", total_events);
       $display("Total anti-messages = %d", total_antimsg );
       $display("Total stalls = %d", total_stalls - (7*total_events) );
+      $display("Contention at queue = %d", total_q_conf );
       $finish;
    end
    
