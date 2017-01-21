@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
   uint64_t  *cp_a2;
   uint64_t  *cp_a3;
   uint64_t  sim_end_time;
+  uint64_t  num_init_events = 64;
   long size = 8;
 
   // check command line args
@@ -73,7 +74,7 @@ int main(int argc, char *argv[])
   uint64_t args[4];
   args[0] = (uint64_t) cp_a0; 
   args[1] = sim_end_time;
-  args[2] = (uint64_t) cp_a2; 
+  args[2] = num_init_events; 
   args[3] = (uint64_t) cp_a3;
   
   wdm_dispatch_t ds;

@@ -8,6 +8,7 @@ module phold #(
 
    input [47:0]	addr,
    input [TIME_WID-1:0] sim_end,
+   input [7:0] num_init_events,
    output reg [TIME_WID-1:0] gvt,
    output reg rtn_vld,
 
@@ -138,7 +139,7 @@ always @(posedge clk or negedge rst_n) begin
       init_counter <= (r_state == INIT) ? (init_counter + 1) : 0;
    end
 end
-assign init_complete = (init_counter == 8'd64);
+assign init_complete = (init_counter == {num_init_events, 1'b0} );
 
 
 /*
@@ -161,7 +162,7 @@ assign enq = queue_busy ? 0 :
 //assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
 assign deq = queue_busy ? 0 : ( (r_state == RUNNING) ? (~enq && ~q_empty && core_available) : 0);
 
-assign new_event = (r_state == INIT) ? {init_counter[0 +: NB_LPID], {TIME_WID{1'b0}} } : new_event_data[rcv_egnt];
+assign new_event = (r_state == INIT) ? {init_counter[1 +: NB_LPID], {TIME_WID{1'b0}} } : new_event_data[rcv_egnt];
 
 
 /*
