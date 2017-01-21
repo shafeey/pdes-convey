@@ -91,9 +91,6 @@ int main(int argc, char *argv[])
   args[2] = num_init_events; 
   args[3] = num_LP;
     
-  gvt = report[0];
-  total_cycles = report[1];
-  
   wdm_dispatch_t ds;
   memset((void *)&ds, 0, sizeof(ds));
   for (i=0; i<4; i++) {
@@ -119,8 +116,11 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
-  printf("Returned gvt = %lld\n", (long long) gvt);
-  printf("Total cycle = %lld\n", (long long) total_cycles);
+  gvt = report[0];
+  total_cycles = report[1];
+  
+  printf("Returned GVT = %lld\n", (long long) gvt);
+  printf("Total cycles = %lld\n", (long long) total_cycles);
 
   return 0;
 }
