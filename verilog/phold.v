@@ -34,6 +34,8 @@ module phold #(
    output [63:0] total_stalls,
    output [63:0] total_antimsg,
    output [63:0] total_q_conf,
+   output [63:0] avg_proc_time,
+   output [63:0] avg_mem_time,
    
    input rst_n
    );
@@ -295,6 +297,9 @@ wire [NUM_CORE-1:0] p_mc_rs_stall;
 
 wire [NB_HIST_DEPTH*NUM_CORE-1:0] core_hist_cnt;
 wire [NUM_CORE-1:0] core_active;
+
+reg [15:0] r_proc_time[0:NUM_CORE-1], r_mem_time[0:NUM_CORE-1];
+
 // Phold Core instantiation
 genvar g;
 generate
@@ -302,6 +307,8 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
    wire event_valid, new_event_ready, ack, ready;
    wire [NB_LPID-1:0] new_event_target;
    wire [TIME_WID-1:0] new_event_time;
+   
+   wire [15:0] proc_time, mem_time;
 
    wire t_rq;
    
@@ -328,6 +335,9 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .stall            ( stall[g] ),
       .ready            ( ready ),
       .ack              ( ack ),
+      
+      .proc_time        ( proc_time ),
+      .mem_time         ( mem_time  ),
 
       .hist_addr        ( hist_addr[g]),
       .hist_data_rd     ( hist_data_rd ),
@@ -363,6 +373,11 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
    
    // History table timing improvement buffer
    req_buffer u_reqbuf(clk, t_rq, hist_req[g], hist_vgnt[g], ~rst_n);
+   
+   always @(posedge clk) begin
+      r_proc_time[g] <= proc_time;
+      r_mem_time[g] <= mem_time;
+   end
    
 end
 endgenerate
@@ -578,6 +593,33 @@ always @(posedge clk) begin
 end
 
 assign total_stalls = r_total_stalls;
+
+// Average Times
+reg [NB_COREID+63:0] total_proc_time, total_mem_time;
+reg r_rcv_eval;
+reg [NB_COREID-1:0] r_rcv_c;
+
+always @(posedge clk) begin
+   if(~rst_n) begin
+      r_rcv_eval <= 0;
+      r_rcv_c <= 0;
+      total_mem_time <= 0;
+      total_proc_time <= 0;
+   end
+   else begin
+      r_rcv_eval <= new_event_available & ~q_full & ~queue_busy;
+      r_rcv_c <= rcv_egnt;
+      
+      if(r_rcv_eval) begin
+         total_proc_time <= total_proc_time + r_proc_time[r_rcv_c];
+         total_mem_time <= total_mem_time + r_mem_time[r_rcv_c];
+      end 
+   end
+end
+
+assign avg_proc_time = total_proc_time[NB_COREID +: 63];
+assign avg_mem_time = total_mem_time[NB_COREID +: 63];
+
 
 `ifdef TRACE
  always @(posedge clk) begin : trace

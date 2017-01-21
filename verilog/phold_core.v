@@ -37,6 +37,10 @@ module phold_core
 	output ready,
 	input ack,
    
+   // report back
+   output [15:0] proc_time,
+   output [15:0] mem_time,
+   
    // Event History Interface
    output          hist_rq,
    output          hist_wr_en,
@@ -137,13 +141,13 @@ module phold_core
    localparam READ_HIST = 4'd2;
    localparam LD_MEM = 4'd3;
 	localparam LD_RTN = 4'd4;
-   localparam GEN_EVT = 4'd5;
-	localparam WRITE_HIST = 4'd6;
-	localparam ST_MEM = 4'd7;
-	localparam ST_RTN = 4'd8;
+   localparam PROC_DELAY = 4'd5;
+   localparam GEN_EVT = 4'd6;
+	localparam WRITE_HIST = 4'd7;
+	localparam ST_MEM = 4'd8;
+	localparam ST_RTN = 4'd9;
    localparam SEND_EVT = 4'd10;
-	localparam WAIT = 4'd9;
-   localparam PROC_DELAY = 4'd11;
+	localparam WAIT = 4'd11;
             
    localparam EVT_TYPE_WID = 1;
    localparam CANCEL_EVT = {EVT_TYPE_WID{1'b1}};
@@ -643,6 +647,29 @@ module phold_core
       .din       (out_buf_din       )
    );
    
+   // Counters
+   reg [15:0] r_proc_time, r_mem_time;
+   reg ack_rcvd;
+   always @(posedge clk) begin
+      if(~rst_n) begin
+         r_proc_time <= 0;
+         r_mem_time <= 0;
+         ack_rcvd <= 0;
+      end
+      else begin
+         if(ack)
+            ack_rcvd <= 0;
+         r_proc_time <= (r_state == IDLE || ack_rcvd) ? 0 : r_proc_time + 1;
+         
+         if(r_state == IDLE || ack_rcvd)
+            r_mem_time <= 0;
+         else
+            r_mem_time <= (r_state == LD_MEM || r_state == LD_RTN || r_state == ST_MEM || r_state == ST_RTN) ?
+                              r_mem_time + 1 : r_mem_time;
+      end
+   end
    
-    
+   assign proc_time = r_proc_time;
+   assign mem_time = r_mem_time;
+   
 endmodule

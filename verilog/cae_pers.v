@@ -125,6 +125,8 @@ module cae_pers #(
    localparam AEG_TOTAL_STALLS = 8;
    localparam AEG_TOTAL_ANTIMSG = 9;
    localparam AEG_TOTAL_QCONF = 10;
+   localparam AEG_AVG_PROC = 11;
+   localparam AEG_AVG_MEM = 12;
    
    
    // Report collection
@@ -142,6 +144,12 @@ module cae_pers #(
 
    reg [63:0] r_total_qconf;
    wire [63:0] total_qconf;
+
+   reg [63:0] r_avg_proc_time;
+   wire [63:0] avg_proc_time;
+
+   reg [63:0] r_avg_mem_time;
+   wire [63:0] avg_mem_time;
 
    assign disp_aeg_cnt = NA;
 
@@ -171,6 +179,10 @@ module cae_pers #(
          else if (g==AEG_TOTAL_ANTIMSG)
             c_aeg = r_total_antimsg;
          else if (g==AEG_TOTAL_QCONF)
+            c_aeg = r_total_qconf;
+         else if (g==AEG_AVG_PROC)
+            c_aeg = r_total_qconf;
+         else if (g==AEG_AVG_MEM)
             c_aeg = r_total_qconf;
       end
 
@@ -277,6 +289,8 @@ module cae_pers #(
        r_total_events <= r_reset ? 0 : (phold_rtn_vld ? total_events : r_total_events);
        r_total_antimsg <= r_reset ? 0 : (phold_rtn_vld ? total_antimsg : r_total_antimsg);
        r_total_qconf <= r_reset ? 0 : (phold_rtn_vld ? total_qconf : r_total_qconf);
+       r_avg_mem_time <= r_reset ? 0 : (phold_rtn_vld ? avg_mem_time : r_avg_mem_time);
+       r_avg_proc_time <= r_reset ? 0 : (phold_rtn_vld ? avg_proc_time : r_avg_proc_time);
     end
     
     wire phold_rst_n = !r_reset && (r_state == RUNNING) && (i_aeid == 0);
@@ -348,6 +362,8 @@ module cae_pers #(
         .total_events ( total_events ),
         .total_antimsg ( total_antimsg ),
         .total_q_conf (total_qconf ),
+        .avg_mem_time (avg_mem_time ),
+        .avg_proc_time (avg_proc_time),
         
         .rst_n        ( phold_rst_n )
     );
