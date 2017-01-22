@@ -497,7 +497,7 @@ module phold_core
    assign out_event_msg = r_out_event_msg | {hist_buf_ret_size, {MSG_WID-NB_HIST_DEPTH{1'b0}} };
    
    // Rollback entry information
-   localparam RBK_OFFSET_WID =8;
+   localparam RBK_OFFSET_WID =7;
    localparam RBK_TYPE_WID = 1;
    
    wire [TIME_WID-1:0] rbk_time;
@@ -584,7 +584,7 @@ module phold_core
    assign hist_buf_wr_en = (r_hist_data_vld && ~c_discard_hist_entry) ||
                               c_gen_next_evt;
    assign hist_buf_din = c_gen_next_evt ? 
-                                 {new_event_target , new_event_time_offest[7:0], cur_event_type, cur_event_time}
+                                 {new_event_target , new_event_time_offest[6:0], cur_event_type, cur_event_time}
                                  : r_hist_data_rd;
    assign hist_buf_rd_en = r_hist_wr & hist_access_grant;
    

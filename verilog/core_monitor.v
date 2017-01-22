@@ -312,9 +312,59 @@ module core_monitor #(
    generate
       genvar i;
       
+      wire [TIME_WID-1:0]  cmp5_min[0:31];
+      wire [NB_COREID-1:0]   cmp5_min_idx[0:31];
+      wire cmp5_min_vld[0:31];
+      
+            // Level 4
       wire [TIME_WID-1:0]  cmp4_min[0:15];
       wire [NB_COREID-1:0]   cmp4_min_idx[0:15];
       wire cmp4_min_vld[0:15];
+      
+      for(i = 0; i < 16; i = i+1) begin : cmp4
+         wire [TIME_WID-1:0]  left, right, min;
+         reg [TIME_WID-1:0]  r_min;
+         wire [NB_COREID-1:0]   left_idx, right_idx, min_idx;
+         reg [NB_COREID-1:0]   r_min_idx;
+         wire l_vld, r_vld, min_vld;
+         reg r_min_vld;
+
+         assign min = (l_vld && r_vld) ?
+                           (left < right ? left : right) :
+                           (l_vld ? left : right);
+         assign min_idx = (l_vld && r_vld) ?
+                           (left < right ? left_idx : right_idx) :
+                           (l_vld ? left_idx : right_idx);
+         assign min_vld = (l_vld || r_vld);
+
+         if(5 == NB_COREID) begin
+           /* Top level, assign from input signals */
+            assign l_vld = r_match_rcv[i*2];
+            assign left = r_mf_core_times[i*2];
+            assign left_idx = {i, 1'b0};
+            assign r_vld = r_match_rcv[i*2 + 1];
+            assign right = r_mf_core_times[i*2 + 1];
+            assign right_idx = {i, 1'b1};
+         end
+         else begin
+            assign l_vld = cmp5_min_vld[i*2];
+            assign left = cmp5_min[i*2];
+            assign left_idx = cmp5_min_idx[i*2];
+            assign r_vld = cmp5_min_vld[i*2 + 1];
+            assign right = cmp5_min[i*2 + 1];
+            assign right_idx = cmp5_min_idx[i*2 + 1];
+         end
+            
+         always @(posedge clk) begin
+            r_min <= min;
+            r_min_idx <= min_idx;
+            r_min_vld <= min_vld;
+         end
+            
+         assign cmp4_min[i] = r_min;
+         assign cmp4_min_idx[i] = r_min_idx;
+         assign cmp4_min_vld[i] = r_min_vld;
+      end  
       
       // Level 3
       wire [TIME_WID-1:0]  cmp3_min[0:7];

@@ -51,6 +51,7 @@ module phold_tb;
       .lp_mask     ( LP_MASK ),
       .addr        (addr        ),
       .gvt         (gvt         ),
+      .num_memcall ( 4'd1 ),
       
       .total_cycles ( total_cycles),
       .total_events ( total_events),

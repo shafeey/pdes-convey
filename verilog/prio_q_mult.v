@@ -1,7 +1,7 @@
 module prio_q_mult #(
       parameter WIDTH = 32,   // Width of data ports
       parameter CMP_WID = 32, // Only compare CMP_WID LSBs to sort heap
-      parameter DEPTH = 5     // Depth of heap, heap size = (2^DEPTH)-1 = 31
+      parameter DEPTH = 7     // Depth of heap, heap size = (2^DEPTH)-1 = 127
    )(
       input                clk,
       input                enq,
@@ -45,7 +45,7 @@ module prio_q_mult #(
    assign enq_int[1] = ins_select == 1 ? enq : 0;
    
    
-   prio_q #(
+   pheap #(
       .WIDTH  (WIDTH  ),
       .CMP_WID(CMP_WID),
       .DEPTH  (DEPTH  )
@@ -60,7 +60,7 @@ module prio_q_mult #(
       .empty   (empty_int[0]   ),
       .rst_n   (rst_n   )
    );
-   prio_q #(
+   pheap #(
       .WIDTH  (WIDTH  ),
       .CMP_WID(CMP_WID),
       .DEPTH  (DEPTH  )

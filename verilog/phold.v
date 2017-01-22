@@ -42,10 +42,10 @@ module phold #(
    );
 
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  16;
-   localparam NB_COREID = 4;
-   localparam NUM_LP = 64;
-   localparam NB_LPID = 6;
+   localparam NUM_CORE =  8;
+   localparam NB_COREID = 3;
+   localparam NUM_LP = 256;
+   localparam NB_LPID = 8;
    // Need to re-generate the core if History table parameters change.
    localparam HIST_WID = 32;
    localparam NB_HIST_DEPTH = 4; // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
@@ -402,7 +402,7 @@ always @(posedge clk) begin
 end
 
 // Event queue instantiation
-pheap #(.CMP_WID(TIME_WID+1)) queue(
+prio_q_mult #(.CMP_WID(TIME_WID+1)) queue(
    .clk(clk),
    .rst_n(rst_n),
    .enq(prio_q_enq),
