@@ -12,6 +12,7 @@ module phold #(
    input [3:0] num_memcall,
    output reg [TIME_WID-1:0] gvt,
    output reg rtn_vld,
+   output reg cleanup,
 
    output			mc_rq_vld,
    output [2:0]	mc_rq_cmd,
@@ -95,13 +96,18 @@ localparam 	IDLE = 3'd0,
          RUNNING = 3'd3,
          FINISHED = 3'd4;
 
+wire [NUM_CORE-1:0] core_active;
 wire init_complete;
 reg	[2:0]	c_state, r_state;
 reg c_rtn_vld;
-
+reg block_cores;
+reg c_cleanup;
+   
 always @* begin : state_transitions
    c_state = r_state;
    c_rtn_vld = rtn_vld;
+   block_cores = 0;
+   c_cleanup = 0;
 
    case(r_state)
    IDLE:
@@ -113,14 +119,19 @@ always @* begin : state_transitions
       end
    READY:
       c_state = RUNNING;
-   RUNNING:
+   RUNNING: begin
       if(gvt > sim_end) begin
-         c_state = FINISHED;
          c_rtn_vld = 1;
+         block_cores = 1;   
+         if(~|core_active) begin
+            c_state = FINISHED;
+         end
       end
+   end 
    FINISHED: begin
-      c_state = IDLE;
-      c_rtn_vld = 0;
+         c_state = IDLE;
+         c_rtn_vld = 1;
+         c_cleanup = 1;
    end
    endcase
 end
@@ -129,10 +140,12 @@ always @(posedge clk or negedge rst_n) begin
    if(!rst_n) begin
       r_state <= 0;
       rtn_vld <= 0;
+      cleanup <= 0;
    end
    else begin
       r_state <= c_state;
       rtn_vld <= c_rtn_vld || q_full;
+      cleanup <= c_cleanup || q_full;
    end
 end
 
@@ -223,7 +236,7 @@ always @(posedge clk) begin : q_prep
    send_sel <= send_egnt;
    rcv_sel <= rcv_egnt;
    r_rcv_vld <= new_event_available;
-   r_send_req <= |send_vld;
+   r_send_req <= |send_vld && ~block_cores;
    
    r_send_msg <= send_event_data;
    for(i=0; i < NUM_CORE; i = i + 1) begin
@@ -325,7 +338,6 @@ wire [NUM_CORE-1:0] p_mc_rq_flush;
 wire [NUM_CORE-1:0] p_mc_rs_stall;
 
 wire [NB_HIST_DEPTH*NUM_CORE-1:0] core_hist_cnt;
-wire [NUM_CORE-1:0] core_active;
 
 reg [15:0] r_proc_time[0:NUM_CORE-1], r_mem_time[0:NUM_CORE-1];
 

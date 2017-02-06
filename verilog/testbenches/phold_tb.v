@@ -14,6 +14,8 @@ module phold_tb;
    reg [47:0] addr;
    wire [TIME_WID-1:0] gvt;
    wire rtn_vld;
+   wire cleanup;
+   
    wire mc_rq_vld;
    wire [2:0] mc_rq_cmd;
    wire [3:0] mc_rq_scmd;
@@ -62,6 +64,8 @@ module phold_tb;
       .avg_proc_time (avg_proc_time),
       
       .rtn_vld     (rtn_vld     ),
+      .cleanup     (cleanup     ),
+      
       .mc_rq_vld   (mc_rq_vld   ),
       .mc_rq_cmd   (mc_rq_cmd   ),
       .mc_rq_scmd  (mc_rq_scmd  ),
@@ -112,6 +116,9 @@ module phold_tb;
       rst_n = 1;
       
       @(posedge rtn_vld)
+
+      
+      @(posedge cleanup) 
       $display("Simulation ended at GVT = %d", gvt);
       $display("Total cycles = %d", total_cycles);
       $display("Total events = %d", total_events);
