@@ -42,10 +42,10 @@ module phold #(
    );
 
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  16;
-   localparam NB_COREID = 4;
-   localparam NUM_LP = 32;
-   localparam NB_LPID = 5;
+   localparam NUM_CORE =  32;
+   localparam NB_COREID = 5;
+   localparam NUM_LP = 256;
+   localparam NB_LPID = 8;
    // Need to re-generate the core if History table parameters change.
    localparam HIST_WID = 32;
    localparam NB_HIST_DEPTH = 4; // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
@@ -164,16 +164,26 @@ wire [7:0]	event_count; // It's used to display debug statements
 wire new_event_available, core_available;
 wire [NB_COREID-1:0] rcv_egnt, send_egnt;
 wire [NUM_CORE-1:0] rcv_vgnt, send_vgnt, rcv_vld, send_vld;
-wire [MSG_WID-1:0] new_event_data[NUM_CORE-1:0];
+wire [MSG_WID-1:0] new_event_data[0:NUM_CORE-1];
 wire  [MSG_WID-1:0] send_event_data;
 
-reg queue_busy;
-assign enq = queue_busy ? 0 : 
-            ( (r_state == INIT) | ((r_state == RUNNING) ? (~q_full && new_event_available) : 1'b0) );
-//assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
-assign deq = queue_busy ? 0 : ( (r_state == RUNNING) ? (~enq && ~q_empty && core_available) : 0);
+reg [NB_COREID-1:0] rcv_sel, send_sel;
+reg [MSG_WID-1:0] r_rcv_msg [0:NUM_CORE-1];
+reg [MSG_WID-1:0] r_send_msg;
+reg r_rcv_vld; 
+reg r_send_req;
 
-assign new_event = (r_state == INIT) ? {(lp_mask & init_counter[1 +: NB_LPID]), {TIME_WID{1'b0}} } : new_event_data[rcv_egnt];
+reg queue_busy;
+wire deq_success = (r_state == RUNNING) & ~enq && ~queue_busy && ~q_empty && r_send_req;
+wire [NUM_CORE-1:0] rcv_ack = enq << rcv_sel;
+wire [NUM_CORE-1:0] event_sent = deq_success << send_sel;
+
+assign enq = queue_busy ? 0 : 
+            ( (r_state == INIT) | ((r_state == RUNNING) ? (~q_full && r_rcv_vld) : 1'b0) );
+//assign deq = (r_state == RUNNING) ? (~new_event_available && ~q_empty && core_available) : 0;
+assign deq = queue_busy ? 0 : ( (r_state == RUNNING) ? (~enq && ~q_empty && r_send_req) : 0);
+
+assign new_event = (r_state == INIT) ? {(lp_mask & init_counter[1 +: NB_LPID]), {TIME_WID{1'b0}} } : r_rcv_msg[rcv_sel];
 
 
 /*
@@ -188,7 +198,7 @@ assign send_event_valid = deq;
 assign next_rnd = deq || (r_state == INIT);
 
 // Round robin arbiter
-rrarb #(.NR(NUM_CORE), .PIPE(1))  rcv_rrarb (	// Receive new events from the cores
+rrarb #(.NR(NUM_CORE), .PIPE(0))  rcv_rrarb (	// Receive new events from the cores
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( rcv_vld ),
@@ -198,7 +208,7 @@ rrarb #(.NR(NUM_CORE), .PIPE(1))  rcv_rrarb (	// Receive new events from the cor
    .egnt   ( rcv_egnt )
 );
 
-rrarb #(.NR(NUM_CORE), .PIPE(1))  send_rrarb (	// Dispatch new events to the cores
+rrarb #(.NR(NUM_CORE), .PIPE(0))  send_rrarb (	// Dispatch new events to the cores
    .clk    ( clk ),
    .reset  ( ~rst_n ),
    .req    ( send_vld ),
@@ -207,6 +217,20 @@ rrarb #(.NR(NUM_CORE), .PIPE(1))  send_rrarb (	// Dispatch new events to the cor
    .eval   ( core_available ),
    .egnt   ( send_egnt )
 );
+
+always @(posedge clk) begin : q_prep
+   integer i;
+   send_sel <= send_egnt;
+   rcv_sel <= rcv_egnt;
+   r_rcv_vld <= new_event_available;
+   r_send_req <= |send_vld;
+   
+   r_send_msg <= send_event_data;
+   for(i=0; i < NUM_CORE; i = i + 1) begin
+      r_rcv_msg[i] <= new_event_data[i];
+   end 
+end
+
 
 rrarb #(.NR(NUM_CORE), .PIPE(1)) mem_rrarb (	// Memory access arbiter
    .clk    ( clk ),
@@ -316,6 +340,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
    wire [15:0] proc_time, mem_time;
 
    wire t_rq;
+   wire req_event;
    
    phold_core
     #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ),
@@ -330,7 +355,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .rst_n            ( rst_n ),
       .core_id          ( g[0 +: NB_COREID] ),
       .event_valid      ( event_valid ),
-      .cur_event_msg    ( send_event_data ),
+      .cur_event_msg    ( r_send_msg ),
       .global_time      ( gvt ),
       .random_in        ( random_in ),
       .lp_mask          ( r_lp_mask ),
@@ -372,13 +397,16 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .mem_gnt          ( mem_vgnt[g] )
    )/* synthesis syn_noprune=1 */;
 
-   assign event_valid = send_event_valid & send_vgnt[g] & ~queue_busy;
+   // assign event_valid = send_event_valid & send_vgnt[g] & ~queue_busy;
    assign rcv_vld[g] = new_event_ready;
-   assign ack = rcv_vgnt[g] & ~q_full & ~queue_busy;
-   assign send_vld[g] = ready;
+   assign ack = rcv_ack[g]; //rcv_vgnt[g] & ~q_full & ~queue_busy;
+//   assign send_vld[g] = ready;
+   
+   // To improve timing for event dispatch
+   req_buffer u_sendbuf(clk, ready, send_vld[g], event_sent[g], event_valid, ~rst_n);
    
    // History table timing improvement buffer
-   req_buffer u_reqbuf(clk, t_rq, hist_req[g], hist_vgnt[g], ~rst_n);
+   req_buffer u_reqbuf(clk, t_rq, hist_req[g], hist_vgnt[g], , ~rst_n);
    
    always @(posedge clk) begin
       r_proc_time[g] <= proc_time;
@@ -427,7 +455,7 @@ LFSR prng (
    assign sent_msg_vld = deq;
    assign rcv_msg_vld = enq;
    assign msg = sent_msg_vld ? queue_out : (rcv_msg_vld ? new_event : 0);
-   assign core_id = sent_msg_vld ? send_egnt : (rcv_msg_vld ? rcv_egnt : 0);
+   assign core_id = sent_msg_vld ? send_sel : (rcv_msg_vld ? rcv_sel: 0);
 
    core_monitor #(
       .NUM_CORE(NUM_CORE),
@@ -588,7 +616,7 @@ endgenerate
 always @(posedge clk) begin
    r_core_done <= rcv_vgnt;
    r_core_stalled <= stall;
-   r_last_rcv_gnt <= rcv_egnt;
+   r_last_rcv_gnt <= rcv_sel;
    
    if(~rst_n) begin
       r_total_stalls <= 0;
@@ -613,8 +641,8 @@ always @(posedge clk) begin
       total_proc_time <= 0;
    end
    else begin
-      r_rcv_eval <= new_event_available & ~q_full & ~queue_busy;
-      r_rcv_c <= rcv_egnt;
+      r_rcv_eval <= r_rcv_vld & ~q_full & ~queue_busy;
+      r_rcv_c <= rcv_sel;
       
       if(r_rcv_eval) begin
          total_proc_time <= total_proc_time + r_proc_time[r_rcv_c];
@@ -633,7 +661,7 @@ assign avg_mem_time = total_mem_time[NB_COREID +: 63];
 
     $write("GVT:%5d ",gvt);
     for(i=0; i<NUM_CORE; i=i+1) begin
-       if(send_egnt == i && deq) begin
+       if(send_sel == i && deq) begin
           $write("|%1d->%-5d", send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID]);
           if(send_event_data[NB_LPID + TIME_WID]) $write("# ");
           else $write("> ");
@@ -648,7 +676,7 @@ assign avg_mem_time = total_mem_time[NB_COREID +: 63];
        else
           $write("x ");
 
-       if(rcv_egnt == i && enq)
+       if(rcv_sel == i && enq)
           if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write(">>########|");
           else begin
              if(new_event[NB_LPID + TIME_WID]) $write("#");
@@ -718,7 +746,7 @@ assign avg_mem_time = total_mem_time[NB_COREID +: 63];
       for(i=0; i<NUM_CORE; i=i+1) begin
          state_p[i] <= state[i];
          
-         if(send_egnt == i && deq) begin
+         if(send_sel == i && deq) begin
             $write("%8d: sent: %2d->%5d to core %2d", cycle, send_event_data[TIME_WID +: NB_LPID], send_event_data[0 +: TIME_WID], i);
             if(send_event_data[NB_LPID + TIME_WID]) $write(" (C)");
             $write(" GVT: %-5d", gvt);
@@ -726,7 +754,7 @@ assign avg_mem_time = total_mem_time[NB_COREID +: 63];
             $write("\n");
          end
    
-         if(rcv_egnt == i && enq) begin
+         if(rcv_sel == i && enq) begin
             if(new_event[0 +: NB_LPID + TIME_WID + 1] == {1'b1, {NB_LPID + TIME_WID{1'b0}}}) $write("%8d: null from core %2d", cycle, i);
             else begin
                $write("%8d: recv: %2d->%5d from core %2d", cycle, new_event[TIME_WID +: NB_LPID], new_event[0+:TIME_WID], i);

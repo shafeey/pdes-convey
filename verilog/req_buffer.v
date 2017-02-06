@@ -1,12 +1,13 @@
 module req_buffer
    (
-   clk, ireq, oreq, ack, reset 
+   clk, ireq, oreq, ack, oack, reset 
       );
    
    input clk;
    input ireq;
    input ack;
    output oreq;
+   output oack;
    input reset;
    
    
@@ -17,10 +18,12 @@ module req_buffer
    
    reg [1:0] r_state, c_state;
    reg c_req;
+   reg c_ack;
    
    always @* begin
       c_state = r_state;
       c_req = 0;
+      c_ack = 0;
       
       case (r_state)
          IDLE: begin
@@ -34,6 +37,7 @@ module req_buffer
                c_state = DONE;
          end
          DONE: begin
+            c_ack=1;
             if(~ireq)
                c_state = IDLE;
          end
@@ -45,8 +49,7 @@ module req_buffer
    end
          
    assign oreq = c_req;
+   assign oack = c_ack;
          
-   
-   
 	
 endmodule

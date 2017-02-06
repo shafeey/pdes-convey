@@ -129,7 +129,7 @@ module phold_core
       r_event_valid <= event_valid;
       r_stall <= stall;
       
-		if(event_valid) begin
+		if(event_valid & ready) begin
          cur_lp_id <= cur_event_msg[TIME_WID +: NB_LPID];
          cur_event_time <= cur_event_msg[0 +: TIME_WID];
          cur_event_type <= cur_event_msg[TIME_WID + NB_LPID];
@@ -219,7 +219,7 @@ module phold_core
       
 		case(r_state)
 		IDLE : begin
-			if(r_event_valid) begin
+			if(event_valid) begin
 				c_state = STALL;
 			end
       end

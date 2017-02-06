@@ -81,12 +81,15 @@ module core_monitor #(
    reg    [NB_LPID-1:0]    r_mf_LP_id;
    reg [NB_COREID-1:0] r_mf_core_id;
    
+   wire [NUM_CORE-1:0] set_new_active = (r_sent_msg_vld << r_core_id);
+   wire [NUM_CORE-1:0] clear_finished = ~(r_rcv_msg_vld << r_core_id);
+   
    always @(posedge clk) begin
       r_msg <= reset ? 0 : msg;
       r_sent_msg_vld <= reset ? 0 : sent_msg_vld;
       r_rcv_msg_vld <= reset ? 0 : (rcv_msg_vld && end_signal);
       r_core_id <= reset ? 0 : core_id;
-      r_core_active <= reset ? 0 : core_active;
+      r_core_active <= reset ? 0 : ((r_core_active | set_new_active) & clear_finished);
       r_LP_id <= reset ? 0 : LP_id;
       r_event_time <= reset ? 0 : event_time;
       
