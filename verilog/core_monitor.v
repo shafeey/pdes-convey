@@ -60,6 +60,8 @@ module core_monitor #(
    reg    [NB_HIST_DEPTH-1:0] LP_hist_size[0:NUM_LP-1];
    reg    [NB_HIST_DEPTH-1:0] core_hist_size[0:NUM_CORE-1];
    wire   [NB_HIST_DEPTH-1:0] hist_size;
+   wire end_signal;
+   reg r_end_signal;
    
    genvar p;
    for(p=0; p<NUM_CORE; p = p+1) begin : expand_bus
@@ -82,7 +84,7 @@ module core_monitor #(
    always @(posedge clk) begin
       r_msg <= reset ? 0 : msg;
       r_sent_msg_vld <= reset ? 0 : sent_msg_vld;
-      r_rcv_msg_vld <= reset ? 0 : rcv_msg_vld;
+      r_rcv_msg_vld <= reset ? 0 : (rcv_msg_vld && end_signal);
       r_core_id <= reset ? 0 : core_id;
       r_core_active <= reset ? 0 : core_active;
       r_LP_id <= reset ? 0 : LP_id;
@@ -91,11 +93,13 @@ module core_monitor #(
       r_match <= reset ? 0 : match;
       r_hist_size <= reset ? 0 : hist_size;
       r_msg_LP_id <= reset ? 0 : core_LP_id[core_id];
+      r_end_signal <= reset ? 0 : end_signal;
    end
 
    assign LP_id = msg[TIME_WID +: NB_LPID];
    assign event_time = msg[0 +: TIME_WID];
-   assign hist_size = msg[MSG_WID-1:MSG_WID-NB_HIST_DEPTH];
+   assign hist_size = msg[MSG_WID-2:MSG_WID-NB_HIST_DEPTH-1];
+   assign end_signal = msg[MSG_WID-1];
    
    assign stall = r_stall | c_stall;
 
@@ -277,7 +281,6 @@ module core_monitor #(
             assign min_vld = (l_vld || r_vld);
 
             if(j+1 == NB_COREID) begin
-              /* Top level, assign from input signals *//*
                assign l_vld = r_match_rcv[i*2];
                assign left = r_mf_core_times[i*2];
                assign left_idx = {i, 1'b0};
@@ -578,7 +581,7 @@ module core_monitor #(
     
     wire [TIME_WID-1:0] min_core_times[0:(NUM_CORE >> 3)-1];
    wire min_core_vld;
-    wire [TIME_WID-1:0] mt0, mt1, mt2, mt;
+    wire [TIME_WID-1:0] mt0, mt1, mt2, mt3, mt4, mt5, mt6, mt;
     
     reg [3:0] min_time_ctr;
     generate
@@ -667,6 +670,20 @@ module core_monitor #(
           
           assign min_time = mt;
        end
+       else if(NUM_CORE == 64) begin
+          assign mt0 = (min_core_times[0] < min_core_times[1]) ? min_core_times[0] : min_core_times[1];
+          assign mt1 = (min_core_times[2] < min_core_times[3]) ? min_core_times[2] : min_core_times[3];
+          
+          assign mt2 = (min_core_times[4] < min_core_times[5]) ? min_core_times[4] : min_core_times[5];
+          assign mt3 = (min_core_times[6] < min_core_times[7]) ? min_core_times[6] : min_core_times[7];
+          
+          assign mt4 = (mt0 < mt1) ? mt0 : mt1;
+          assign mt5 = (mt2 < mt1) ? mt2 : mt1;
+          assign mt6 = (mt4 < mt5) ? mt4 : mt5;
+          assign mt = min_core_vld ? mt6 : 0;
+          
+          assign min_time = mt;
+       end
        
       
     endgenerate
@@ -676,7 +693,7 @@ module core_monitor #(
        if(reset || min_time_vld)
           min_msg_time <= {TIME_WID{1'b1}};
        else
-          if(sent_msg_vld || rcv_msg_vld) begin
+          if(sent_msg_vld || (rcv_msg_vld && end_signal)) begin
              min_msg_time <= min_msg_time < event_time ? min_msg_time : event_time;
           end
     end

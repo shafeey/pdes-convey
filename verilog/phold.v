@@ -42,10 +42,10 @@ module phold #(
    );
 
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  8;
-   localparam NB_COREID = 3;
-   localparam NUM_LP = 256;
-   localparam NB_LPID = 8;
+   localparam NUM_CORE =  16;
+   localparam NB_COREID = 4;
+   localparam NUM_LP = 32;
+   localparam NB_LPID = 5;
    // Need to re-generate the core if History table parameters change.
    localparam HIST_WID = 32;
    localparam NB_HIST_DEPTH = 4; // Depth of history buffer reserved for each LP = 2**NB_HIST_DEPTH
@@ -159,7 +159,7 @@ assign init_complete = (init_counter == {num_init_events, 1'b0} );
 wire enq, deq;
 wire [MSG_WID-1:0] queue_out;
 wire  [MSG_WID-1:0] new_event;
-wire [5:0]	event_count; // It's used to display debug statements
+wire [7:0]	event_count; // It's used to display debug statements
 
 wire new_event_available, core_available;
 wire [NB_COREID-1:0] rcv_egnt, send_egnt;

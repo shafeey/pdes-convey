@@ -161,6 +161,7 @@ module phold_core
 				
 	reg [3:0] c_state, r_state;
 	reg c_event_ready, r_event_ready;
+	reg finalize;
 	wire finished, read_hist_finished;
 	wire ld_rtn_vld, st_rtn_vld;
    wire rand_delay_reached;
@@ -214,6 +215,7 @@ module phold_core
       c_out_buf_rd_en = 0;
       
       c_rq_vadr = 0;
+      finalize = 0;
       
 		case(r_state)
 		IDLE : begin
@@ -259,7 +261,7 @@ module phold_core
    			end
    			if(mem_gnt) begin
                if(core_id == 0)
-                  $display("**Info: mem ld in 0\n");
+//                  $display("**Info: mem ld in 0\n");
    //            c_state = LD_RTN;
                c_rq_vld = 1'b0;
    			end
@@ -336,7 +338,55 @@ module phold_core
       end
       
       SEND_EVT: begin
+         c_event_ready = r_event_ready;
+         c_out_event_msg = r_out_event_msg;
+         c_rollback_msg_type = r_rollback_msg_type;
+         
+         if(~r_event_ready) begin
+            if(out_buf_empty) begin // No rollback events to push to queue
+               c_event_ready = 0;
+               c_state = WAIT;
+            end 
+            else begin // Has rollback events to push
+               c_event_ready = 1;
+               // current event is a regular event
+               // Need a rollback event and a cancellation message
+               if(r_rollback_msg_type == 0) begin
+                  c_rollback_msg_type = 1;
+                  c_out_event_msg = rbk_cncl_msg;
+               end
+               else begin
+                  c_rollback_msg_type = 0;
+                  c_out_event_msg = rbk_evt_msg;
+                  c_out_buf_rd_en = 1;
+               end 
+            end
+         end
+         else begin
+            if(ack) begin
+               c_event_ready = 0;
+            end
+         end
+//         
+//         c_event_ready = 1;
+//         if(r_discard_cur_evt) begin
+//            if(r_gen_cancel) begin
+//               c_out_event_msg = cancel_evt_msg;
+//            end
+//            else
+//               c_out_event_msg = null_msg;
+//         end
+//         else begin
+//            if(cur_event_type == CANCEL_EVT)
+//               c_out_event_msg = null_msg;
+//            else
+//               c_out_event_msg = new_event_msg;
+//         end 
+//         c_state = WAIT;
+      end
+      WAIT: begin
          c_event_ready = 1;
+         finalize = 1;
          if(r_discard_cur_evt) begin
             if(r_gen_cancel) begin
                c_out_event_msg = cancel_evt_msg;
@@ -350,33 +400,38 @@ module phold_core
             else
                c_out_event_msg = new_event_msg;
          end 
-         c_state = WAIT;
-		end
-      
-		WAIT: begin // Wait for the generated event to be received
-         c_event_ready = r_event_ready;
-         c_out_event_msg = r_out_event_msg;
-         c_rollback_msg_type = r_rollback_msg_type;
+         
          if(ack) begin
-            if(out_buf_empty) begin // No rollback events to push to queue
-               c_event_ready = 0;
-               c_state = IDLE;
-            end 
-            else begin // Has rollback events to push
-               // current event is a regular event
-               // Need a rollback event and a cancellation message
-                  if(r_rollback_msg_type == 0) begin
-                     c_rollback_msg_type = 1;
-                     c_out_event_msg = rbk_cncl_msg;
-                  end
-                  else begin
-                     c_rollback_msg_type = 0;
-                     c_out_event_msg = rbk_evt_msg;
-                     c_out_buf_rd_en = 1;
-                  end 
-            end
+            c_state = IDLE;
+            c_event_ready = 0;
+            finalize = 0;
          end
-      end 
+      end
+      
+//		WAIT: begin // Wait for the generated event to be received
+//         c_event_ready = r_event_ready;
+//         c_out_event_msg = r_out_event_msg;
+//         c_rollback_msg_type = r_rollback_msg_type;
+//         if(ack) begin
+//            if(out_buf_empty) begin // No rollback events to push to queue
+//               c_event_ready = 0;
+//               c_state = IDLE;
+//            end 
+//            else begin // Has rollback events to push
+//               // current event is a regular event
+//               // Need a rollback event and a cancellation message
+//                  if(r_rollback_msg_type == 0) begin
+//                     c_rollback_msg_type = 1;
+//                     c_out_event_msg = rbk_cncl_msg;
+//                  end
+//                  else begin
+//                     c_rollback_msg_type = 0;
+//                     c_out_event_msg = rbk_evt_msg;
+//                     c_out_buf_rd_en = 1;
+//                  end 
+//            end
+//         end
+//      end 
 		endcase
    end
    
@@ -389,7 +444,7 @@ module phold_core
       end 
       else begin 
          r_event_ready <= c_event_ready; 
-         r_out_event_msg <= c_out_event_msg;
+         r_out_event_msg <= c_out_event_msg | {finalize, {MSG_WID-1{1'b0}}};
          r_rollback_msg_type <= c_rollback_msg_type;
       end 
       
@@ -494,7 +549,7 @@ module phold_core
    
    
    // Superimpose the buffer size on message, to be read by core monitor  
-   assign out_event_msg = r_out_event_msg | {hist_buf_ret_size, {MSG_WID-NB_HIST_DEPTH{1'b0}} };
+   assign out_event_msg = r_out_event_msg | {1'b0, hist_buf_ret_size, {MSG_WID-NB_HIST_DEPTH-1{1'b0}} };
    
    // Rollback entry information
    localparam RBK_OFFSET_WID =7;
