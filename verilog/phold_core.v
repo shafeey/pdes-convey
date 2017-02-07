@@ -589,7 +589,7 @@ module phold_core
       hist_buf_ret_size <= (~rst_n || r_state == IDLE) ? 0 : 
                               (c_gen_next_evt ? hist_buf_ret_size + 1 : 
                                  (r_hist_filt_done2 ? hist_buf_cnt : hist_buf_ret_size));
-      r_hist_size <= stall ? 0 : hist_size;
+      r_hist_size <= hist_size;
       
    end
    

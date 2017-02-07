@@ -277,14 +277,6 @@ wire [NB_HIST_ADDR-1:0]  hist_addr[NUM_CORE-1:0];
 wire [HIST_WID-1:0] hist_data_wr[NUM_CORE-1:0];
 wire [HIST_WID-1:0] hist_data_rd;
 
-wire  hist_wea; // history table write enable
-wire [NB_HIST_ADDR-1:0]  hist_addra;
-wire [HIST_WID-1:0] hist_dina;
-
-assign hist_wea = hist_wr_en[hist_egnt];
-assign hist_addra = hist_addr[hist_egnt];
-assign hist_dina = hist_data_wr[hist_egnt];
-
 //bram_sp_32 event_history_table(
 //      .clka (~clk ), // input clka
 //      .wea  (hist_wea && hist_req_vld), // input [0 : 0] wea
@@ -295,16 +287,30 @@ assign hist_dina = hist_data_wr[hist_egnt];
 
 // Buffering history table input and output
 reg [NUM_CORE-1:0] r_hist_vgnt;
-reg [NB_HIST_ADDR-1:0] r_hist_addr;
-reg r_hist_wea;
-reg [HIST_WID-1:0] r_hist_din_val;
+reg [NB_HIST_ADDR-1:0] r_hist_addr[NUM_CORE-1:0];
+// reg [HIST_WID-1:0] r_hist_din_val;
+reg [NB_COREID-1:0] r_hist_egnt;
+reg [NUM_CORE-1:0] r_hist_wea;
+reg r_hist_req_vld;
+reg [HIST_WID-1:0] r_hist_data_wr[NUM_CORE-1:0];
+reg [HIST_WID-1:0] r_hist_data_rd;
 
-always @(posedge clk) begin
-   r_hist_addr <= hist_addr[hist_egnt];
+always @(posedge clk) begin :hist_assignment
+   integer hi;
+   for(hi = 0; hi < NUM_CORE; hi = hi+1) begin
+      r_hist_addr[hi] <= hist_addr[hi];
+      r_hist_data_wr[hi] <= hist_data_wr[hi];
+   end 
+   r_hist_wea <= hist_wr_en;
+   r_hist_req_vld <= hist_req_vld;
+   
    r_hist_vgnt <= hist_vgnt;
-   r_hist_wea <= hist_wr_en[hist_egnt] && hist_req_vld;
-   r_hist_din_val <= hist_data_wr[hist_egnt];
+   r_hist_egnt <= hist_egnt;
+//   r_hist_din_val <= hist_data_wr[hist_egnt];
+   r_hist_data_rd <= hist_data_rd;
 end
+
+wire  hist_wea = r_hist_wea[r_hist_egnt] && r_hist_req_vld; // history table write enable
 
 hist_table #(
    .WIDTH(HIST_WID),
@@ -313,9 +319,9 @@ hist_table #(
    )
    history_table(
       .clka (clk ), // input clka
-      .wea  (r_hist_wea), // input [0 : 0] wea
-      .addra(r_hist_addr), // input [7 : 0] addra
-      .dina (r_hist_din_val), // input [31 : 0] dina
+      .wea  (hist_wea), // input [0 : 0] wea
+      .addra(r_hist_addr[r_hist_egnt]), // input [7 : 0] addra
+      .dina (r_hist_data_wr[r_hist_egnt]), // input [31 : 0] dina
       .douta(hist_data_rd)  // output [31 : 0] douta
    );
 
@@ -359,6 +365,11 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
    wire t_rq;
    wire req_event;
    
+   reg r_hist_ack; // One cycle delayed history access grant
+   always @(posedge clk) begin
+      r_hist_ack <= r_hist_vgnt[g];
+   end
+   
    phold_core
     #(.NUM_MEM_BYTE    ( NUM_MEM_BYTE ),
       .MC_RTNCTL_WIDTH ( MC_RTNCTL_WIDTH ),
@@ -392,11 +403,11 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .hist_access_time ( hist_access_time ),
 
       .hist_addr        ( hist_addr[g]),
-      .hist_data_rd     ( hist_data_rd ),
+      .hist_data_rd     ( r_hist_data_rd ),
       .hist_data_wr     ( hist_data_wr[g] ),
       .hist_wr_en       ( hist_wr_en[g] ),
       .hist_rq          ( t_rq ), //hist_req[g] ),
-      .hist_access_grant( r_hist_vgnt[g] ),
+      .hist_access_grant( r_hist_ack ),
       .hist_size        ( core_hist_cnt[g*NB_HIST_DEPTH +: NB_HIST_DEPTH]),
 
       .mc_rq_vld        ( p_mc_rq_vld[g] ),
