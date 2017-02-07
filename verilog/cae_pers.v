@@ -354,7 +354,7 @@ wire phold_cleanup;
         .clk          ( clk ),
 		.sim_end      ( aeg[AEG_SIM_END_TIME][15:0] ),
         .addr         ( aeg[AEG_ADDR_A1][47:0] ),
-		.num_init_events ( aeg[AEG_NUM_INIT_EVENTS][7:0] ),
+		.num_init_events ( aeg[AEG_NUM_INIT_EVENTS][8:0] ),
 		.lp_mask      ( config_bits[7:0] ),
       .num_memcall  ( config_bits[19:16] ),
         .gvt          ( phold_gvt ),
