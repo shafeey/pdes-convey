@@ -6,8 +6,8 @@ module phold_tb;
    localparam MC_RTNCTL_WIDTH = 32;
    localparam TIME_WID = 16;
    localparam RAM_DEPTH = 256*9*8;
-   localparam NUM_INIT_EVENTS = 300;
-   localparam LP_MASK = 8'h3F;
+   localparam NUM_INIT_EVENTS = 400;
+   localparam LP_MASK = 8'h7F;
    localparam NUM_MEMCALL = 4'd1;
    localparam FIXED_DELAY = 8'd10;
    

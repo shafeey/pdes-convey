@@ -318,9 +318,59 @@ module core_monitor #(
    generate
       genvar i;
       
+      wire [TIME_WID-1:0]  cmp6_min[0:63];
+      wire [NB_COREID-1:0]   cmp6_min_idx[0:63];
+      wire cmp6_min_vld[0:63];
+      
+            // Level 5
       wire [TIME_WID-1:0]  cmp5_min[0:31];
       wire [NB_COREID-1:0]   cmp5_min_idx[0:31];
       wire cmp5_min_vld[0:31];
+      
+      for(i = 0; i < 32; i = i+1) begin : cmp5
+         wire [TIME_WID-1:0]  left, right, min;
+         reg [TIME_WID-1:0]  r_min;
+         wire [NB_COREID-1:0]   left_idx, right_idx, min_idx;
+         reg [NB_COREID-1:0]   r_min_idx;
+         wire l_vld, r_vld, min_vld;
+         reg r_min_vld;
+
+         assign min = (l_vld && r_vld) ?
+                           (left < right ? left : right) :
+                           (l_vld ? left : right);
+         assign min_idx = (l_vld && r_vld) ?
+                           (left < right ? left_idx : right_idx) :
+                           (l_vld ? left_idx : right_idx);
+         assign min_vld = (l_vld || r_vld);
+
+         if(6 == NB_COREID) begin
+           /* Top level, assign from input signals */
+            assign l_vld = r_match_rcv[i*2];
+            assign left = r_mf_core_times[i*2];
+            assign left_idx = {i, 1'b0};
+            assign r_vld = r_match_rcv[i*2 + 1];
+            assign right = r_mf_core_times[i*2 + 1];
+            assign right_idx = {i, 1'b1};
+         end
+         else begin
+            assign l_vld = cmp6_min_vld[i*2];
+            assign left = cmp6_min[i*2];
+            assign left_idx = cmp6_min_idx[i*2];
+            assign r_vld = cmp6_min_vld[i*2 + 1];
+            assign right = cmp6_min[i*2 + 1];
+            assign right_idx = cmp6_min_idx[i*2 + 1];
+         end
+            
+         always @(posedge clk) begin
+            r_min <= min;
+            r_min_idx <= min_idx;
+            r_min_vld <= min_vld;
+         end
+            
+         assign cmp5_min[i] = r_min;
+         assign cmp5_min_idx[i] = r_min_idx;
+         assign cmp5_min_vld[i] = r_min_vld;
+      end  
       
             // Level 4
       wire [TIME_WID-1:0]  cmp4_min[0:15];
@@ -681,7 +731,7 @@ module core_monitor #(
           assign mt3 = (min_core_times[6] < min_core_times[7]) ? min_core_times[6] : min_core_times[7];
           
           assign mt4 = (mt0 < mt1) ? mt0 : mt1;
-          assign mt5 = (mt2 < mt1) ? mt2 : mt1;
+          assign mt5 = (mt2 < mt3) ? mt2 : mt3;
           assign mt6 = (mt4 < mt5) ? mt4 : mt5;
           assign mt = min_core_vld ? mt6 : 0;
           

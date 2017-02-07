@@ -46,8 +46,8 @@ module phold #(
    );
 
    localparam MSG_WID = 32;         // Width of event message
-   localparam NUM_CORE =  32;
-   localparam NB_COREID = 5;
+   localparam NUM_CORE =  64;
+   localparam NB_COREID = 6;
    localparam NUM_LP = 256;
    localparam NB_LPID = 8;
    // Need to re-generate the core if History table parameters change.
