@@ -7,7 +7,7 @@ module phold #(
 
    input [47:0]	addr,
    input [TIME_WID-1:0] sim_end,
-   input [7:0] num_init_events,
+   input [8:0] num_init_events,
    input [7:0] lp_mask,
    input [3:0] num_memcall,
    output reg [TIME_WID-1:0] gvt,
@@ -154,7 +154,7 @@ end
  *  Initialization state.
  *  Used to insert the initial events to the queue.
  */
-reg [8:0] init_counter;
+reg [9:0] init_counter;
 always @(posedge clk or negedge rst_n) begin
    if(!rst_n) begin
       init_counter <= 0;
@@ -163,7 +163,7 @@ always @(posedge clk or negedge rst_n) begin
       init_counter <= (r_state == INIT) ? (init_counter + 1) : 0;
    end
 end
-assign init_complete = (init_counter == {num_init_events, 1'b0} );
+assign init_complete = (init_counter == {(num_init_events -1), 1'b0} );
 
 
 /*
@@ -172,7 +172,7 @@ assign init_complete = (init_counter == {num_init_events, 1'b0} );
 wire enq, deq;
 wire [MSG_WID-1:0] queue_out;
 wire  [MSG_WID-1:0] new_event;
-wire [7:0]	event_count; // It's used to display debug statements
+wire [8:0]	event_count; // It's used to display debug statements
 
 wire new_event_available, core_available;
 wire [NB_COREID-1:0] rcv_egnt, send_egnt;

@@ -1,7 +1,7 @@
 module prio_q_mult #(
       parameter WIDTH = 32,   // Width of data ports
       parameter CMP_WID = 32, // Only compare CMP_WID LSBs to sort heap
-      parameter DEPTH = 7     // Depth of heap, heap size = (2^DEPTH)-1 = 127
+      parameter DEPTH = 8     // Depth of each heap, each heap size = (2^DEPTH)-1 = 255
    )(
       input                clk,
       input                enq,

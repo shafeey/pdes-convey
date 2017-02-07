@@ -76,7 +76,7 @@ File.open("prio_q_test_data.dat","w"){ |f|
 	s = (pattern.size >0) ? pattern.shift.to_i : prng.rand(3)	
 	case s
 	when 1
-	    if(count<63) then
+	    if(count<255) then
 		a = prng.rand(255)
 		f.puts "1, 0, " + a.to_s
 		pq<<a
