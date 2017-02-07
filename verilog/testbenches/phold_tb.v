@@ -41,6 +41,7 @@ module phold_tb;
    wire [63:0] total_q_conf;
    wire [63:0] avg_proc_time;
    wire [63:0] avg_mem_time;
+   wire [63:0] avg_hist_time;
    
 
    phold #(
@@ -62,6 +63,7 @@ module phold_tb;
       .total_antimsg ( total_antimsg),
       .total_q_conf ( total_q_conf ),
       .avg_mem_time (avg_mem_time),
+      .avg_hist_time (avg_hist_time),
       .avg_proc_time (avg_proc_time),
       
       .rtn_vld     (rtn_vld     ),
@@ -124,10 +126,11 @@ module phold_tb;
       $display("Total cycles = %d", total_cycles);
       $display("Total events = %d", total_events);
       $display("Total anti-messages = %d", total_antimsg );
-      $display("Total stalls = %d", total_stalls - (7*total_events) );
+      $display("Total stalls = %d", total_stalls);
       $display("Contention at queue = %d", total_q_conf );
-      $display("Average active time for cores", avg_proc_time );
+      $display("Average process time for cores", avg_proc_time );
       $display("Average memory access time = %d", avg_mem_time);
+      $display("Average history access time = %d", avg_hist_time);
       $finish;
    end
    

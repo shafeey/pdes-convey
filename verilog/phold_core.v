@@ -41,6 +41,8 @@ module phold_core
    // report back
    output [15:0] proc_time,
    output [15:0] mem_time,
+   output [15:0] stall_time,
+   output [15:0] hist_access_time,
    
    // Event History Interface
    output          hist_rq,
@@ -737,28 +739,37 @@ module phold_core
    );
    
    // Counters
-   reg [15:0] r_proc_time, r_mem_time;
-   reg ack_rcvd;
+   reg [15:0] r_proc_time, r_mem_time, r_stall_time, r_hist_access_time;
    always @(posedge clk) begin
       if(~rst_n) begin
+         r_stall_time <= 0;
          r_proc_time <= 0;
          r_mem_time <= 0;
-         ack_rcvd <= 0;
+         r_hist_access_time <= 0;
       end
       else begin
-         if(ack)
-            ack_rcvd <= 0;
-         r_proc_time <= (r_state == IDLE || ack_rcvd) ? 0 : r_proc_time + 1;
-         
-         if(r_state == IDLE || ack_rcvd)
+         if(r_state == IDLE) begin
+            r_proc_time <= 0;
+            r_stall_time <= 0;   
             r_mem_time <= 0;
-         else
-            r_mem_time <= (r_state == LD_MEM || r_state == LD_RTN || r_state == ST_MEM || r_state == ST_RTN) ?
-                              r_mem_time + 1 : r_mem_time;
+            r_hist_access_time <= 0;
+         end
+         else begin
+            if(r_state == PROC_DELAY || r_state == GEN_EVT || r_state == SEND_EVT || r_state == WAIT)
+               r_proc_time <= r_proc_time + 1;
+            if(r_state == STALL)
+               r_stall_time <= r_stall_time + 1;
+            if(r_state == LD_MEM || r_state == LD_RTN || r_state == ST_MEM || r_state == ST_RTN)
+               r_mem_time <= r_mem_time + 1;
+            if(r_state == READ_HIST || r_state == WRITE_HIST)
+               r_hist_access_time <= r_hist_access_time + 1;
+         end 
       end
    end
    
    assign proc_time = r_proc_time;
    assign mem_time = r_mem_time;
+   assign stall_time = r_stall_time;
+   assign hist_access_time = r_hist_access_time;
    
 endmodule

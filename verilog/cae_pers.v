@@ -118,6 +118,7 @@ module cae_pers #(
    localparam AEG_SIM_END_TIME = 1;   // Simulation end target GVT
    localparam AEG_NUM_INIT_EVENTS = 2;   // Number of initial events
    localparam AEG_CONFIG = 3;    // bits 19:16 = num_mem_access, 7:0 = num_lp_mask
+   localparam AEG_DELAY = 4;    // Number of processing delay cycles
    
    localparam AEG_GVT = 5; // GVT return on AEG[1]
    localparam AEG_TOTAL_CYCLES = 6;
@@ -127,6 +128,7 @@ module cae_pers #(
    localparam AEG_TOTAL_QCONF = 10;
    localparam AEG_AVG_PROC = 11;
    localparam AEG_AVG_MEM = 12;
+   localparam AEG_AVG_HIST = 13;
    
    localparam RESCUE_TIME = 32'hFFFF_FFFF;
    
@@ -152,6 +154,9 @@ module cae_pers #(
 
    reg [63:0] r_avg_mem_time;
    wire [63:0] avg_mem_time;
+
+   reg [63:0] r_avg_hist_time;
+   wire [63:0] avg_hist_time;
 
    assign disp_aeg_cnt = NA;
 
@@ -186,6 +191,8 @@ module cae_pers #(
             c_aeg = r_avg_proc_time;
          else if (g==AEG_AVG_MEM)
             c_aeg = r_avg_mem_time;
+         else if (g==AEG_AVG_HIST)
+            c_aeg = r_avg_hist_time;
       end
 
       always @(posedge clk) begin
@@ -303,6 +310,7 @@ wire phold_cleanup;
        r_total_antimsg <= r_reset ? 0 : (phold_rtn_vld ? total_antimsg : r_total_antimsg);
        r_total_qconf <= r_reset ? 0 : (phold_rtn_vld ? total_qconf : r_total_qconf);
        r_avg_mem_time <= r_reset ? 0 : (phold_rtn_vld ? avg_mem_time : r_avg_mem_time);
+       r_avg_hist_time <= r_reset ? 0 : (phold_rtn_vld ? avg_hist_time : r_avg_hist_time);
        r_avg_proc_time <= r_reset ? 0 : (phold_rtn_vld ? avg_proc_time : r_avg_proc_time);
     end
     
@@ -383,6 +391,7 @@ wire phold_cleanup;
         .total_antimsg ( total_antimsg ),
         .total_q_conf (total_qconf ),
         .avg_mem_time (avg_mem_time ),
+        .avg_hist_time (avg_hist_time ),
         .avg_proc_time (avg_proc_time),
         
         .rst_n        ( phold_rst_n )

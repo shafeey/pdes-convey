@@ -38,6 +38,7 @@ module phold #(
    output [63:0] total_q_conf,
    output [63:0] avg_proc_time,
    output [63:0] avg_mem_time,
+   output [63:0] avg_hist_time,
    
    input rst_n
    );
@@ -339,7 +340,7 @@ wire [NUM_CORE-1:0] p_mc_rs_stall;
 
 wire [NB_HIST_DEPTH*NUM_CORE-1:0] core_hist_cnt;
 
-reg [15:0] r_proc_time[0:NUM_CORE-1], r_mem_time[0:NUM_CORE-1];
+reg [15:0] r_proc_time[0:NUM_CORE-1], r_mem_time[0:NUM_CORE-1], r_stall_time[0:NUM_CORE-1], r_hist_time[0:NUM_CORE-1];
 
 // Phold Core instantiation
 genvar g;
@@ -349,7 +350,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
    wire [NB_LPID-1:0] new_event_target;
    wire [TIME_WID-1:0] new_event_time;
    
-   wire [15:0] proc_time, mem_time;
+   wire [15:0] proc_time, mem_time, stall_time, hist_access_time;
 
    wire t_rq;
    wire req_event;
@@ -381,6 +382,8 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       
       .proc_time        ( proc_time ),
       .mem_time         ( mem_time  ),
+      .stall_time       ( stall_time  ),
+      .hist_access_time ( hist_access_time ),
 
       .hist_addr        ( hist_addr[g]),
       .hist_data_rd     ( hist_data_rd ),
@@ -423,6 +426,8 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
    always @(posedge clk) begin
       r_proc_time[g] <= proc_time;
       r_mem_time[g] <= mem_time;
+      r_stall_time[g] <= stall_time;
+      r_hist_time[g] <= hist_access_time;
    end
    
 end
@@ -606,10 +611,12 @@ assign total_events = r_total_events;
 assign total_antimsg = r_anti_msg_total;
 assign total_q_conf = r_q_conflict;
 
-reg [NUM_CORE-1:0] r_core_done, r_core_stalled;
-reg [NB_COREID-1:0] r_last_rcv_gnt;
+reg [NUM_CORE-1:0] r_core_stalled, r_rcv_ack;
 reg [63:0] core_stall_time[0:NUM_CORE-1];
 reg [63:0] r_total_stalls;
+
+reg core_quitting;
+reg [NB_COREID-1:0] r_last_sel;
 
 generate
    genvar r;
@@ -617,7 +624,7 @@ generate
       always @(posedge clk) begin
          if(~rst_n)
             core_stall_time[r] <= 0;
-         else if(r_core_done[r])
+         else if(r_rcv_ack[r] && core_quitting)
             core_stall_time[r] <= 0;
          else if(r_core_stalled[r])
             core_stall_time[r] <= core_stall_time[r] + 1;
@@ -625,46 +632,35 @@ generate
    end
 endgenerate
 
+// Average Times
+reg [63:0] total_proc_time, total_mem_time, total_hist_time;
+
 always @(posedge clk) begin
-   r_core_done <= rcv_vgnt;
+   r_rcv_ack <= rcv_ack;
    r_core_stalled <= stall;
-   r_last_rcv_gnt <= rcv_sel;
+   core_quitting <= new_event[MSG_WID-1] && enq;
+   r_last_sel <= rcv_sel;
    
    if(~rst_n) begin
+      total_proc_time <= 0;
       r_total_stalls <= 0;
+      total_mem_time <= 0;
+      total_hist_time <= 0;
    end
-   else
-      r_total_stalls <= r_total_stalls + core_stall_time[r_last_rcv_gnt];
-      
+   else if(core_quitting) begin
+      total_proc_time <= total_proc_time + r_proc_time[r_last_sel];
+      r_total_stalls <= r_total_stalls + r_stall_time[r_last_sel];
+      total_mem_time <= total_mem_time + r_mem_time[r_last_sel];
+      total_hist_time <= total_hist_time + r_hist_time[r_last_sel];
+   end 
 end
 
 assign total_stalls = r_total_stalls;
+assign total_stalls = r_total_stalls;
 
-// Average Times
-reg [NB_COREID+63:0] total_proc_time, total_mem_time;
-reg r_rcv_eval;
-reg [NB_COREID-1:0] r_rcv_c;
-
-always @(posedge clk) begin
-   if(~rst_n) begin
-      r_rcv_eval <= 0;
-      r_rcv_c <= 0;
-      total_mem_time <= 0;
-      total_proc_time <= 0;
-   end
-   else begin
-      r_rcv_eval <= r_rcv_vld & ~q_full & ~queue_busy;
-      r_rcv_c <= rcv_sel;
-      
-      if(r_rcv_eval) begin
-         total_proc_time <= total_proc_time + r_proc_time[r_rcv_c];
-         total_mem_time <= total_mem_time + r_mem_time[r_rcv_c];
-      end 
-   end
-end
-
-assign avg_proc_time = total_proc_time[NB_COREID +: 63];
-assign avg_mem_time = total_mem_time[NB_COREID +: 63];
+assign avg_proc_time = total_proc_time;
+assign avg_mem_time = total_mem_time;
+assign avg_hist_time = total_hist_time;
 
 
 `ifdef TRACE
