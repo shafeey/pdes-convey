@@ -15,6 +15,8 @@ module tb_user();
  //   $dumpvars(1,testbench.ae2.same_pers.cae_pers);
  //   $dumpvars(1,testbench.ae3.same_pers.cae_pers);
 $dumpon;
+//#30000
+//$dumpoff;
   end
 
 endmodule

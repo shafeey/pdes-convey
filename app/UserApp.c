@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
   args[1] = sim_end_time;
   args[2] = num_init_events; 
   args[3] = num_LP | (num_mem_access << 16);
-  args[5] = num_delay;
+  args[4] = num_delay;
     
   wdm_dispatch_t ds;
   memset((void *)&ds, 0, sizeof(ds));
