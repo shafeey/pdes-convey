@@ -242,6 +242,7 @@ module cae_pers #(
          rescue_timer = rescue_timer + 1;
    end
 
+wire phold_cleanup;
 
    //
    // Control state machine
@@ -266,7 +267,7 @@ module cae_pers #(
         end
         RUNNING: begin
             if(i_aeid == 4'h0) begin
-                if(phold_rtn_vld || rescue_timer == RESCUE_TIME) begin
+                if( (phold_rtn_vld && phold_cleanup) || rescue_timer == RESCUE_TIME) begin
                     c_state = FINISHED;
                     c_gvt = phold_gvt;
                     $display("simulation: Simulation state changed to FINISHED. GVT is %d", c_gvt);
@@ -358,6 +359,7 @@ module cae_pers #(
       .num_memcall  ( config_bits[19:16] ),
         .gvt          ( phold_gvt ),
         .rtn_vld      ( phold_rtn_vld ),
+        .cleanup      ( phold_cleanup ),
         
         .mc_rq_vld    ( mc_rq_vld ),
         .mc_rq_cmd    ( mc_rq_cmd ),
