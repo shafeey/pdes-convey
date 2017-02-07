@@ -118,7 +118,7 @@ module cae_pers #(
    localparam AEG_SIM_END_TIME = 1;   // Simulation end target GVT
    localparam AEG_NUM_INIT_EVENTS = 2;   // Number of initial events
    localparam AEG_CONFIG = 3;    // bits 19:16 = num_mem_access, 7:0 = num_lp_mask
-   localparam AEG_DELAY = 4;    // Number of processing delay cycles
+   localparam AEG_COREMASK = 4;    // Number of processing delay cycles
    
    localparam AEG_GVT = 5; // GVT return on AEG[1]
    localparam AEG_TOTAL_CYCLES = 6;
@@ -348,9 +348,15 @@ wire phold_cleanup;
     assign csr_rd_data = r_csr_rd_data;
     
     reg [63:0] config_bits;
+    reg [63:0] r_core_mask;
     always @(posedge clk) begin
        config_bits <= aeg[AEG_CONFIG];
+       r_core_mask <= aeg[AEG_COREMASK];
     end
+    
+    wire config_lp_mask = config_bits[7:0];
+    wire config_num_memcall = config_bits[19:16];
+    wire config_fixed_delay = config_bits[47:32];
 
     // Instantiate phold
 // genvar i;
@@ -363,9 +369,10 @@ wire phold_cleanup;
 		.sim_end      ( aeg[AEG_SIM_END_TIME][15:0] ),
         .addr         ( aeg[AEG_ADDR_A1][47:0] ),
 		.num_init_events ( aeg[AEG_NUM_INIT_EVENTS][8:0] ),
-		.lp_mask      ( config_bits[7:0] ),
-      .num_memcall  ( config_bits[19:16] ),
-      .fixed_delay  ( aeg[AEG_DELAY][7:0] ),
+		.lp_mask      ( config_lp_mask ),
+      .num_memcall  ( config_num_memcall ),
+      .fixed_delay  ( config_fixed_delay ),
+      .core_mask    ( r_core_mask ),
       
         .gvt          ( phold_gvt ),
         .rtn_vld      ( phold_rtn_vld ),

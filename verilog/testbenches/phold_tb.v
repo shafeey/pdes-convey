@@ -1,7 +1,7 @@
 `timescale 1ns/100ps
 module phold_tb;
 
-   localparam SIM_END_TIME = 4000;  // Target GVT value when process returns
+   localparam SIM_END_TIME = 1000;  // Target GVT value when process returns
    localparam NUM_MC_PORTS    = 1;
    localparam MC_RTNCTL_WIDTH = 32;
    localparam TIME_WID = 16;
@@ -10,6 +10,7 @@ module phold_tb;
    localparam LP_MASK = 8'h7F;
    localparam NUM_MEMCALL = 4'd1;
    localparam FIXED_DELAY = 8'd10;
+   localparam COREMASK = 64'hFFFF_FFFF;
    
    reg clk;
    reg rst_n;
@@ -58,6 +59,7 @@ module phold_tb;
       .gvt         (gvt         ),
       .num_memcall ( NUM_MEMCALL ),
       .fixed_delay ( FIXED_DELAY ),
+      .core_mask   (COREMASK),
       
       .total_cycles ( total_cycles),
       .total_events ( total_events),

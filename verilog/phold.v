@@ -11,6 +11,7 @@ module phold #(
    input [7:0] lp_mask,
    input [3:0] num_memcall,
    input [7:0] fixed_delay,
+   input [63:0] core_mask,
    
    output reg [TIME_WID-1:0] gvt,
    output reg rtn_vld,
@@ -239,7 +240,7 @@ always @(posedge clk) begin : q_prep
    send_sel <= send_egnt;
    rcv_sel <= rcv_egnt;
    r_rcv_vld <= new_event_available;
-   r_send_req <= |send_vld && ~block_cores;
+   r_send_req <= (|send_vld) && ~block_cores;
    
    r_send_msg <= send_event_data;
    for(i=0; i < NUM_CORE; i = i + 1) begin
@@ -435,7 +436,7 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
 //   assign send_vld[g] = ready;
    
    // To improve timing for event dispatch
-   req_buffer u_sendbuf(clk, ready, send_vld[g], event_sent[g], event_valid, ~rst_n);
+   req_buffer u_sendbuf(clk, ready && core_mask[g], send_vld[g], event_sent[g], event_valid, ~rst_n);
    
    // History table timing improvement buffer
    req_buffer u_reqbuf(clk, t_rq, hist_req[g], hist_vgnt[g], , ~rst_n);
