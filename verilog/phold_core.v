@@ -113,7 +113,7 @@ module phold_core
    // MC interface
 	assign mc_rq_vld = r_rq_vld;
 	assign mc_rq_cmd = r_rq_cmd;
-	assign mc_rq_rtnctl ={{(32-NB_COREID){1'b0}}, core_id}; // NOTE: verify number of preceding zeros when making adjustment
+	assign mc_rq_rtnctl ={{(32-NB_COREID-NB_LPID-TIME_WID){1'b0}}, core_id, cur_lp_id, cur_event_time}; // NOTE: verify number of preceding zeros when making adjustment
 	assign mc_rq_data = { {(16-NB_COREID){1'b0}}, core_id, {(16-NB_LPID){1'b0}}, cur_lp_id, 16'b0, cur_event_time}; // A test data pattern, of no significance
 	assign mc_rq_vadr = r_rq_vadr;
 	assign mc_rq_scmd = 4'h0;
@@ -260,7 +260,7 @@ module phold_core
    				c_rq_cmd = AEMC_CMD_RD8;
    			end
    			if(mem_gnt) begin
-               if(core_id == 0)
+//               if(core_id == 0)
 //                  $display("**Info: mem ld in 0\n");
    //            c_state = LD_RTN;
                c_rq_vld = 1'b0;
@@ -572,9 +572,9 @@ module phold_core
    
 	assign ready = r_core_ready;
 	assign ld_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_RD8_DATA) &&
-							(r_rs_rtnctl[0 +: NB_COREID] ==  core_id);
+							(r_rs_rtnctl[0 +: NB_COREID + NB_LPID + TIME_WID] == {core_id, cur_lp_id, cur_event_time});
 	assign st_rtn_vld = r_rs_vld && (r_rs_cmd == MCAE_CMD_WR_CMP) &&
-							(r_rs_rtnctl[0 +: NB_COREID] == core_id);
+							(r_rs_rtnctl[0 +: NB_COREID + NB_LPID + TIME_WID] == {core_id, cur_lp_id, cur_event_time});
 							
 	always @(posedge clk) begin
       r_rs_vld  <= (~rst_n) ? 1'b0 : mc_rs_vld;
