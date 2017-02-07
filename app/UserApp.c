@@ -22,16 +22,15 @@ int main(int argc, char *argv[])
   uint64_t  total_qconf;
   uint64_t  avg_mem_time;
   uint64_t  avg_proc_time;
-
+  uint64_t  avg_hist_time;
   
   uint64_t  *cp_a0;
-  uint64_t  *cp_a1;
-  uint64_t  *cp_a2;
-  uint64_t  *cp_a3;
-  uint64_t  sim_end_time;
+  
+  uint64_t  sim_end_time = 1000;
   uint64_t  num_init_events = 64;
   uint64_t num_LP = 64;
   uint64_t num_mem_access = 0;
+  uint64_t num_delay = 10;
   
   uint64_t report[64];
   long size = 8;
@@ -39,28 +38,34 @@ int main(int argc, char *argv[])
   // check command line args
   if (argc == 1) {
     sim_end_time = 1000;		// default size
-    printf("Simulation will run until GVT = %lld\n", (long long) sim_end_time);
-    fflush(stdout);
   } else if (argc == 2) {
     sim_end_time = atoi(argv[1]);
-    if (sim_end_time > 0) {
-      printf("Simulation will run until GVT = %lld\n", (long long) sim_end_time);
-      fflush(stdout);
-    } else {
+    if (sim_end_time == 0) {
       usage (argv[0]);
       return 0;
     }
   }
   else if (argc == 5){
-	      sim_end_time = atoi(argv[1]);
-    num_init_events = atoi(argv[2]);
-	num_LP = atoi(argv[3]);
+	sim_end_time = atoi(argv[1]);
+	num_LP = atoi(argv[2]);
+    num_init_events = atoi(argv[3]);
 	num_mem_access = atoi(argv[4]);
+  }
+  else if (argc == 6){
+	sim_end_time = atoi(argv[1]);
+	num_LP = atoi(argv[2]);
+    num_init_events = atoi(argv[3]);
+	num_mem_access = atoi(argv[4]);
+	num_delay = atoi(argv[5]);
   }
   else {
     usage (argv[0]);
     return 0;
   }
+  
+  printf("Simulation will run until GVT = %lld with %lld LPs and %lld initial events\n", (long long) sim_end_time, (long long) num_LP, (long long) num_init_events);
+  fflush(stdout);
+
   
   // Reserve and attach to the coprocessor
   // The "pdk" personality is the PDK sample vadd personality
@@ -83,30 +88,24 @@ int main(int argc, char *argv[])
   // Allocate memory on coprocessor
   wdm_posix_memalign(m_coproc, (void**)&cp_a0, 64, size*128);
   printf("Address passed to CAE: %p\n", cp_a0);
-  wdm_posix_memalign(m_coproc, (void**)&cp_a1, 64, size*128);
-  printf("Address passed to CAE: %p\n", cp_a1);
-  wdm_posix_memalign(m_coproc, (void**)&cp_a2, 64, size*128);
-  printf("Address passed to CAE: %p\n", cp_a2);
-  wdm_posix_memalign(m_coproc, (void**)&cp_a3, 64, size*128);
-  printf("Address passed to CAE: %p\n", cp_a3);
-
-  
+    
   num_LP = num_LP-1;
   
-  uint64_t args[4];
+  uint64_t args[5];
   args[0] = (uint64_t) cp_a0; 
   args[1] = sim_end_time;
   args[2] = num_init_events; 
   args[3] = num_LP | (num_mem_access << 16);
+  args[5] = num_delay;
     
   wdm_dispatch_t ds;
   memset((void *)&ds, 0, sizeof(ds));
   for (i=0; i<4; i++) {
     ds.ae[i].aeg_ptr_s = args;
-    ds.ae[i].aeg_cnt_s = 4;
+    ds.ae[i].aeg_cnt_s = 5;
     ds.ae[i].aeg_base_s = 0;
     ds.ae[i].aeg_ptr_r = &report[i*16];
-    ds.ae[i].aeg_cnt_r = 8;
+    ds.ae[i].aeg_cnt_r = 9;
     ds.ae[i].aeg_base_r = 5;
   }
 
@@ -132,6 +131,7 @@ int main(int argc, char *argv[])
   total_qconf = report[5];
   avg_proc_time = report[6];
   avg_mem_time = report[7];
+  avg_hist_time = report[8];
 
   printf("Returned GVT = %lld\n", (long long) gvt);
   printf("Total cycles = %lld\n", (long long) total_cycles);
@@ -141,6 +141,7 @@ int main(int argc, char *argv[])
   printf("Contention for queue = %lld\n", (long long) total_qconf);
   printf("Total active time per core = %lld\n", (long long) avg_proc_time);
   printf("Total memory access time per core = %lld\n", (long long) avg_mem_time);
+  printf("Total history access time per core = %lld\n", (long long) avg_hist_time);
 
 
   return 0;

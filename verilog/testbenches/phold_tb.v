@@ -9,6 +9,7 @@ module phold_tb;
    localparam NUM_INIT_EVENTS = 500;
    localparam LP_MASK = 8'h7F;
    localparam NUM_MEMCALL = 4'd2;
+   localparam FIXED_DELAY = 8'd10;
    
    reg clk;
    reg rst_n;
@@ -56,6 +57,7 @@ module phold_tb;
       .addr        (addr        ),
       .gvt         (gvt         ),
       .num_memcall ( NUM_MEMCALL ),
+      .fixed_delay ( FIXED_DELAY ),
       
       .total_cycles ( total_cycles),
       .total_events ( total_events),

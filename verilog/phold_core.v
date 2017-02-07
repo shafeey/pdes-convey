@@ -28,6 +28,7 @@ module phold_core
    
    input [NB_LPID-1:0] lp_mask,
    input [3:0] num_memcall,
+   input [7:0] fixed_delay,
 	
 	// New generated event
 	output reg new_event_ready,
@@ -82,8 +83,6 @@ module phold_core
 	reg [NB_LPID-1:0] cur_lp_id;
 	reg [TIME_WID-1:0] cur_event_time;
    reg cur_event_type;
-   
-   wire [7:0] fixed_delay = 10;
    
    reg          c_rq_vld;
    reg          r_rq_vld;

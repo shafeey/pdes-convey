@@ -365,6 +365,8 @@ wire phold_cleanup;
 		.num_init_events ( aeg[AEG_NUM_INIT_EVENTS][8:0] ),
 		.lp_mask      ( config_bits[7:0] ),
       .num_memcall  ( config_bits[19:16] ),
+      .fixed_delay  ( aeg[AEG_DELAY][7:0] ),
+      
         .gvt          ( phold_gvt ),
         .rtn_vld      ( phold_rtn_vld ),
         .cleanup      ( phold_cleanup ),

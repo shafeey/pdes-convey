@@ -10,6 +10,8 @@ module phold #(
    input [8:0] num_init_events,
    input [7:0] lp_mask,
    input [3:0] num_memcall,
+   input [7:0] fixed_delay,
+   
    output reg [TIME_WID-1:0] gvt,
    output reg rtn_vld,
    output reg cleanup,
@@ -321,10 +323,12 @@ wire [NB_RAND-1:0] random_in;
 
 reg [NB_LPID-1:0] r_lp_mask;
 reg [3:0] r_num_memcall;
+reg [7:0] r_fixed_delay;
 
 always @(posedge clk) begin
    r_lp_mask <= lp_mask[0 +: NB_LPID];
    r_num_memcall <= num_memcall[3:0];
+   r_fixed_delay <= fixed_delay;
 end
 
 
@@ -373,6 +377,8 @@ for (g = 0; g < NUM_CORE; g = g+1) begin : gen_phold_core
       .random_in        ( random_in ),
       .lp_mask          ( r_lp_mask ),
       .num_memcall      ( r_num_memcall ),
+      .fixed_delay      ( r_fixed_delay ),
+      
       .out_event_msg    ( new_event_data[g] ),
       .new_event_ready  ( new_event_ready ),
       .active           ( core_active[g] ),
