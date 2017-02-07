@@ -498,7 +498,7 @@ LFSR prng (
       r_mc_rs_scmd <= mc_rs_scmd;
       r_mc_rs_rtnctl <= mc_rs_rtnctl;
       r_mc_rs_data <= mc_rs_data;
-      r_mc_rs_stall <= mc_rq_stall;
+      r_mc_rq_stall <= mc_rq_stall;
       
       r_mc_rq_vld <= mem_req_vld;
       r_mc_rq_cmd <= p_mc_rq_cmd[mem_egnt];
@@ -508,7 +508,7 @@ LFSR prng (
       r_mc_rq_rtnctl <= p_mc_rq_rtnctl[mem_egnt];
       r_mc_rq_data <= p_mc_rq_data[mem_egnt];
       r_mc_rq_flush <= p_mc_rq_flush[mem_egnt];
-      r_mc_rq_stall <= p_mc_rs_stall[mem_egnt];
+      r_mc_rs_stall <= p_mc_rs_stall[mem_egnt];
    end   
    
    assign mem_req = p_mc_rq_vld;

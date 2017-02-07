@@ -254,7 +254,7 @@ module phold_core
       
 		LD_MEM: begin
          if(ld_mem_counter < num_memcall) begin
-   			if(~r_mc_rq_stall) begin
+   			if(~mc_rq_stall) begin
                // Reserve 9 quadwords for each LP to prevent stride access, read next quadword for each memory call
                c_rq_vadr = addr + ( ((cur_lp_id << 3) + cur_lp_id + ld_mem_counter) << 3);
    				c_rq_vld = 1'b1;
@@ -319,7 +319,7 @@ module phold_core
       
 		ST_MEM: begin
          if(ld_mem_counter < num_memcall) begin
-      			if(~r_mc_rq_stall) begin
+      			if(~mc_rq_stall) begin
                   c_rq_vadr = addr + ( ((cur_lp_id << 3) + cur_lp_id + ld_mem_counter) << 3);
       				c_rq_vld = 1'b1;
       				c_rq_cmd = AEMC_CMD_WR8;
