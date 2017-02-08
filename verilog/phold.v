@@ -626,10 +626,10 @@ always @(posedge clk) begin
                         ( (~queue_busy && r_rcv_vld && |(r_req_r & (r_req_r - 1)) ) ? r_q_conflict_rcv + 1 : r_q_conflict_rcv ) : 0;
    
    r_mem_conflict <= rst_n ? 
-                        ( |mem_req ? r_mem_conflict + 1 : r_mem_conflict ) : 0;
+                        ( |(mem_req & (mem_req - 1)) ? r_mem_conflict + 1 : r_mem_conflict ) : 0;
    
    r_hist_conflict <= rst_n ? 
-                        ( |hist_req ? r_hist_conflict + 1 : r_hist_conflict ) : 0;
+                        ( |(hist_req & (hist_req - 1)) ? r_hist_conflict + 1 : r_hist_conflict ) : 0;
    
    r_num_cycles <= rst_n ? ( (r_state == RUNNING) ? r_num_cycles + 1 : r_num_cycles) : 0;
    r_total_events <= rst_n ? ( r_evt_sent ? r_total_events + 1 : r_total_events ) : 0;
