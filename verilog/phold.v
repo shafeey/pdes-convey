@@ -39,6 +39,7 @@ module phold #(
    output [63:0] total_stalls,
    output [63:0] total_antimsg,
    output [63:0] total_q_conf,
+   output [63:0] mem_hist_conf,
    output [63:0] avg_proc_time,
    output [63:0] avg_mem_time,
    output [63:0] avg_hist_time,
@@ -599,24 +600,36 @@ end
 reg [63:0] r_num_cycles;
 reg [63:0] r_total_events;
 reg [63:0] r_anti_msg_total;
-reg [63:0] r_q_conflict;
+reg [20:0] r_q_conflict_all, r_q_conflict_send, r_q_conflict_rcv;
+reg [31:0] r_mem_conflict, r_hist_conflict;
 reg r_evt_sent;
 reg r_evt_rcv;
 reg r_cncl_evt;
 
 reg [NUM_CORE-1:0] r_req_s, r_req_r;
-wire [NUM_CORE-1:0] r_req = r_req_r; // | r_req_s);
+wire [NUM_CORE-1:0] r_req = r_req_s | r_req_r;
 
 always @(posedge clk) begin
-   r_evt_sent = deq;
-   r_evt_rcv = enq;
+   r_evt_sent <= deq;
+   r_evt_rcv <= enq;
    r_cncl_evt <= ~queue_out_temp[0];
    r_req_s <= send_vld;
    r_req_r <= rcv_vld;
    
-   r_q_conflict <= rst_n ? 
-                        ( ( (r_evt_rcv || r_evt_sent) && |(r_req && (r_req - 1)) ) ? r_q_conflict + 1 : r_q_conflict )
-                        : 0;
+   r_q_conflict_all <= rst_n ? 
+                        ( (~queue_busy && (r_rcv_vld || r_send_req) && |(r_req & (r_req - 1)) ) ? r_q_conflict_all + 1 : r_q_conflict_all ) : 0;
+   
+   r_q_conflict_send <= rst_n ? 
+                        ( (~queue_busy && r_send_req && |(r_req_s & (r_req_s - 1)) ) ? r_q_conflict_send + 1 : r_q_conflict_send ) : 0;
+   
+   r_q_conflict_rcv <= rst_n ? 
+                        ( (~queue_busy && r_rcv_vld && |(r_req_r & (r_req_r - 1)) ) ? r_q_conflict_rcv + 1 : r_q_conflict_rcv ) : 0;
+   
+   r_mem_conflict <= rst_n ? 
+                        ( |mem_req ? r_mem_conflict + 1 : r_mem_conflict ) : 0;
+   
+   r_hist_conflict <= rst_n ? 
+                        ( |hist_req ? r_hist_conflict + 1 : r_hist_conflict ) : 0;
    
    r_num_cycles <= rst_n ? ( (r_state == RUNNING) ? r_num_cycles + 1 : r_num_cycles) : 0;
    r_total_events <= rst_n ? ( r_evt_sent ? r_total_events + 1 : r_total_events ) : 0;
@@ -624,10 +637,14 @@ always @(posedge clk) begin
    
 end
 
+wire req_test = |(r_req_r & (r_req_r - 1));
+wire send_test = |(r_req_s & (r_req_s - 1));
+
 assign total_cycles = r_num_cycles;
 assign total_events = r_total_events;
 assign total_antimsg = r_anti_msg_total;
-assign total_q_conf = r_q_conflict;
+assign total_q_conf = {(r_q_conflict_all >>3), (r_q_conflict_rcv >> 3), (r_q_conflict_send >> 3)};
+assign mem_hist_conf = { r_mem_conflict, r_hist_conflict};
 
 reg [NUM_CORE-1:0] r_core_stalled, r_rcv_ack;
 reg [63:0] core_stall_time[0:NUM_CORE-1];

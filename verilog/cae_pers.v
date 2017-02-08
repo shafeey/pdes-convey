@@ -129,6 +129,7 @@ module cae_pers #(
    localparam AEG_AVG_PROC = 11;
    localparam AEG_AVG_MEM = 12;
    localparam AEG_AVG_HIST = 13;
+   localparam AEG_MEM_HIST_CONF = 14;
    
    localparam RESCUE_TIME = 32'hFFFF_FFFF;
    
@@ -148,6 +149,9 @@ module cae_pers #(
 
    reg [63:0] r_total_qconf;
    wire [63:0] total_qconf;
+   
+   reg [63:0] r_mem_hist_conf;
+   wire [63:0] mem_hist_conf;
 
    reg [63:0] r_avg_proc_time;
    wire [63:0] avg_proc_time;
@@ -172,33 +176,40 @@ module cae_pers #(
       reg [63:0] c_aeg, r_aeg;
 
       always @* begin
-     c_aeg = r_aeg;
+         c_aeg = r_aeg;
          if (disp_aeg_wr && disp_aeg_idx[NB-1:0] == g)
             c_aeg = disp_aeg_wr_data;
-         else if (g==AEG_GVT && r_gvt_returned)
-            c_aeg = r_gvt;
-         else if (g==AEG_TOTAL_CYCLES)
-            c_aeg = r_total_cycles;
-         else if (g==AEG_TOTAL_EVENTS)
-            c_aeg = r_total_events;
-         else if (g==AEG_TOTAL_STALLS)
-            c_aeg = r_total_stalls;
-         else if (g==AEG_TOTAL_ANTIMSG)
-            c_aeg = r_total_antimsg;
-         else if (g==AEG_TOTAL_QCONF)
-            c_aeg = r_total_qconf;
-         else if (g==AEG_AVG_PROC)
-            c_aeg = r_avg_proc_time;
-         else if (g==AEG_AVG_MEM)
-            c_aeg = r_avg_mem_time;
-         else if (g==AEG_AVG_HIST)
-            c_aeg = r_avg_hist_time;
+         else begin
+            case(g)
+            AEG_GVT :
+               if (r_gvt_returned)
+                  c_aeg = r_gvt;
+            AEG_TOTAL_CYCLES:
+               c_aeg = r_total_cycles;
+            AEG_TOTAL_EVENTS :
+               c_aeg = r_total_events;
+            AEG_TOTAL_STALLS :
+               c_aeg = r_total_stalls;
+            AEG_TOTAL_ANTIMSG :
+               c_aeg = r_total_antimsg;
+            AEG_TOTAL_QCONF :
+               c_aeg = r_total_qconf;
+            AEG_MEM_HIST_CONF :
+               c_aeg = r_mem_hist_conf;
+            AEG_AVG_PROC :
+               c_aeg = r_avg_proc_time;
+            AEG_AVG_MEM :
+               c_aeg = r_avg_mem_time;
+            AEG_AVG_HIST :
+               c_aeg = r_avg_hist_time;
+            endcase
+         end 
       end
 
-      always @(posedge clk) begin
-    r_aeg <= c_aeg;
-      end
-      assign aeg[g] = r_aeg;
+    always @(posedge clk) begin
+      r_aeg <= c_aeg;
+    end
+    assign aeg[g] = r_aeg;
    end endgenerate
 
    // Handle calls to correct AEG
@@ -309,6 +320,7 @@ wire phold_cleanup;
        r_total_events <= r_reset ? 0 : (phold_rtn_vld ? total_events : r_total_events);
        r_total_antimsg <= r_reset ? 0 : (phold_rtn_vld ? total_antimsg : r_total_antimsg);
        r_total_qconf <= r_reset ? 0 : (phold_rtn_vld ? total_qconf : r_total_qconf);
+       r_mem_hist_conf <= r_reset ? 0 : (phold_rtn_vld ? mem_hist_conf : r_mem_hist_conf);
        r_avg_mem_time <= r_reset ? 0 : (phold_rtn_vld ? avg_mem_time : r_avg_mem_time);
        r_avg_hist_time <= r_reset ? 0 : (phold_rtn_vld ? avg_hist_time : r_avg_hist_time);
        r_avg_proc_time <= r_reset ? 0 : (phold_rtn_vld ? avg_proc_time : r_avg_proc_time);
@@ -399,6 +411,7 @@ wire phold_cleanup;
         .total_events ( total_events ),
         .total_antimsg ( total_antimsg ),
         .total_q_conf (total_qconf ),
+        .mem_hist_conf(mem_hist_conf),
         .avg_mem_time (avg_mem_time ),
         .avg_hist_time (avg_hist_time ),
         .avg_proc_time (avg_proc_time),
