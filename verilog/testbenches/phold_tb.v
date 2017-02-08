@@ -1,16 +1,16 @@
 `timescale 1ns/100ps
 module phold_tb;
 
-   localparam SIM_END_TIME = 1000;  // Target GVT value when process returns
+   localparam SIM_END_TIME = 200;  // Target GVT value when process returns
    localparam NUM_MC_PORTS    = 1;
    localparam MC_RTNCTL_WIDTH = 32;
    localparam TIME_WID = 16;
    localparam RAM_DEPTH = 256*9*8;
-   localparam NUM_INIT_EVENTS = 400;
+   localparam NUM_INIT_EVENTS = 100;
    localparam LP_MASK = 8'h7F;
    localparam NUM_MEMCALL = 4'd1;
    localparam FIXED_DELAY = 8'd10;
-   localparam COREMASK = 64'hFFFF_FFFF;
+   localparam COREMASK = 64'h000000000000FFFF;
    
    reg clk;
    reg rst_n;
@@ -131,7 +131,9 @@ module phold_tb;
       $display("Total events = %d", total_events);
       $display("Total anti-messages = %d", total_antimsg );
       $display("Total stalls = %d", total_stalls);
-      $display("Contention at queue = %d", total_q_conf );
+      $display("Contention at queue = %d", total_q_conf[63:42] << 3 );
+      $display("Contention at queue rcv= %d", total_q_conf[41:21] << 3 );
+      $display("Contention at queue send = %d", total_q_conf[20:0] << 3);
       $display("Average process time for cores", avg_proc_time );
       $display("Average memory access time = %d", avg_mem_time);
       $display("Average history access time = %d", avg_hist_time);

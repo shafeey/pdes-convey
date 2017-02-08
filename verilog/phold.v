@@ -617,10 +617,12 @@ always @(posedge clk) begin
    r_req_r <= rcv_vld;
    
    r_q_conflict_all <= rst_n ? 
-                        ( (~queue_busy && (r_rcv_vld || r_send_req) && |(r_req & (r_req - 1)) ) ? r_q_conflict_all + 1 : r_q_conflict_all ) : 0;
+                        ( ( ~queue_busy && (r_rcv_vld && r_send_req) && |(r_req & (r_req - 1)) && (r_state == RUNNING) )
+                                 ? r_q_conflict_all + 1 : r_q_conflict_all ) : 0;
    
    r_q_conflict_send <= rst_n ? 
-                        ( (~queue_busy && r_send_req && |(r_req_s & (r_req_s - 1)) ) ? r_q_conflict_send + 1 : r_q_conflict_send ) : 0;
+                        ( (~queue_busy && r_send_req && |(r_req_s & (r_req_s - 1)) && (r_state == RUNNING) )
+                                 ? r_q_conflict_send + 1 : r_q_conflict_send ) : 0;
    
    r_q_conflict_rcv <= rst_n ? 
                         ( (~queue_busy && r_rcv_vld && |(r_req_r & (r_req_r - 1)) ) ? r_q_conflict_rcv + 1 : r_q_conflict_rcv ) : 0;
