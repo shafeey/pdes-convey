@@ -735,11 +735,21 @@ module core_monitor #(
           assign mt6 = (mt4 < mt5) ? mt4 : mt5;
           assign mt = min_core_vld ? mt6 : 0;
           
-          assign min_time = mt;
+//          assign min_time = mt;
        end
        
       
     endgenerate
+    
+    reg [TIME_WID-1:0] r_min_time;
+    reg r_min_time_vld;
+    always @(posedge clk) begin
+       r_min_time <= mt;
+       r_min_time_vld <= (min_time_ctr == 9);
+    end
+    assign min_time = r_min_time;
+    assign min_time_vld = r_min_time_vld;
+    
     
     reg [TIME_WID-1:0] min_msg_time;
     always @(posedge clk) begin
@@ -768,7 +778,7 @@ module core_monitor #(
 //    assign mt = min_core_vld ? mt2 : 0;
 //    
 //    assign min_time = mt < min_msg_time ? mt : min_msg_time;
-    assign min_time_vld = (min_time_ctr == 9);
+//    assign min_time_vld = (min_time_ctr == 9);
     
 
 endmodule
