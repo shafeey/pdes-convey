@@ -354,9 +354,9 @@ wire phold_cleanup;
        r_core_mask <= aeg[AEG_COREMASK];
     end
     
-    wire config_lp_mask = config_bits[7:0];
-    wire config_num_memcall = config_bits[19:16];
-    wire config_fixed_delay = config_bits[47:32];
+    wire [7:0] config_lp_mask = config_bits[7:0];
+    wire [3:0] config_num_memcall = config_bits[19:16];
+    wire [15:0] config_fixed_delay = config_bits[47:32];
 
     // Instantiate phold
 // genvar i;

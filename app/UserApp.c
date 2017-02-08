@@ -31,7 +31,15 @@ int main(int argc, char *argv[])
   uint64_t num_LP = 64;
   uint64_t num_mem_access = 0;
   uint64_t num_delay = 10;
-  uint64_t num_cores = 32;
+
+  uint64_t num_cores = 64;
+  uint64_t core_mask = 0xFFFFFFFFFFFFFFFF; // 64 cores
+//  uint64_t core_mask = 0x00000000FFFFFFFF; // 32 cores
+//  uint64_t core_mask = 0x000000000000FFFF; // 16 cores
+//  uint64_t core_mask = 0x00000000000000FF; // 08 cores
+//  uint64_t core_mask = 0x000000000000000F; // 04 cores
+//  uint64_t core_mask = 0x0000000000000003; // 02 cores
+//  uint64_t core_mask = 0x0000000000000001; // 01 cores
   
   uint64_t report[64];
   long size = 8;
@@ -63,8 +71,6 @@ int main(int argc, char *argv[])
     usage (argv[0]);
     return 0;
   }
-  
-  uint64_t core_mask = (1 << 32) -1;
   
   printf("Simulation will run until GVT = %lld with %lld LPs and %lld initial events on %lld cores\n",
 			(long long) sim_end_time, (long long) num_LP, (long long) num_init_events, (long long) num_cores);
@@ -99,7 +105,7 @@ int main(int argc, char *argv[])
   args[0] = (uint64_t) cp_a0; 
   args[1] = sim_end_time;
   args[2] = num_init_events; 
-  args[3] = num_LP | (num_mem_access << 16) (num_delay << 32);
+  args[3] = num_LP | (num_mem_access << 16) | (num_delay << 32);
   args[4] = core_mask;
     
   wdm_dispatch_t ds;
