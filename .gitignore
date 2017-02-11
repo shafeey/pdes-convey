@@ -10,9 +10,12 @@ sim/*
 # all generated files in ./sim/ except
 !sim/*.cpp
 !sim/Makefile
-!sim/runsim
+#!sim/runsim
 
 # ignore all logs everywhere
 **/*.log
 
+# IDE files
+verilog/.dvt
+verilog/.project
 

@@ -1,23 +1,24 @@
-A Parallel Discrete Event Simulation (PDES) system implemented on a Convey HC-2ex coprocessor.
+PDK example personality:  Vector Add (cae_vadd64)
 
-This project, at this moment,  implements a rudimentary form of the phold algorithm.
+This personality implements a vector addition and sum reduction using 
+PDK 2.0.  It uses 64-byte read and write operations available
+in Wolverine platforms.
 
-USAGE INSTRUCTIONS:
 - To set up the environment:
 
     source /opt/convey/pdk2/<rev>/settings.(c)sh
 
 - To compile the application:
 
-    cd app
+    cd cae_vadd/app
     make
 
 - To run the simulation:
 
-    cd /sim
+    cd cae_vadd/sim
     ./runsim
 
 - To build the personality:
 
-    cd phys
+    cd cae_vadd/phys
     make

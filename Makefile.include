@@ -1,10 +1,11 @@
 # Copyright 2013-2014 Convey Computer Corp. 
 
 # Supported Platforms:  hc-1, hc-1ex, hc-2, hc-2ex, wx-690, wx-2000
-CNY_PDK_PLATFORM = hc-2ex
+CNY_PDK_PLATFORM = wx-2000
 
 # Vadd personality requires read ordering
-MC_RSP_ORDER = 1
+NUM_MC_PORTS = 1
+MC_RSP_ORDER = 0
 
 # Personality clock frequency 
 #   CLK_PERS_FREQ = <50|75|100...250>
