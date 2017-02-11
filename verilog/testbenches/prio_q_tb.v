@@ -1,8 +1,8 @@
 `timescale 1ns / 1ps
 
 //`define PRIO_Q_DUMP_HEAP_CONTENTS // Writes heap values to file for debug
-`define DWIDTH 16 // Width of DATA BUS
-`define HDEPTH 5  // Depth of heap
+`define DWIDTH 32 // Width of DATA BUS
+`define HDEPTH 8  // Depth of heap
 
 module prio_q_tb( );
 
@@ -61,6 +61,8 @@ module prio_q_tb( );
             enq, deq, inp_data);
          if(!scan_file) $display("Error reading data file");
          @(posedge clk);
+            enq = 0; deq = 0; inp_data = 0;
+         @(posedge clk);
       end
 
       done      = 1'b1; // Finished reading all data
@@ -68,23 +70,24 @@ module prio_q_tb( );
    end
 
    always @(posedge clk) begin
-      if(count == 32)
-         $display("Error: Invalid number of elements in the queue");
+      if(count == 255)
+         $display("** Warning: Queue is full (Cycle %d)", cycle_num);
       if(deq && inp_data != out_data)
-         $display("Error: Cycle %d, Count %d, Expected %d, Actual %d",
+         $display("** Error: Cycle %d, Count %d, Expected %d, Actual %d",
             cycle_num, count, inp_data, out_data);
    end
 
 // Instantiate module under test
-   prio_q DUT (
+   pheap DUT (
       .clk(clk),
       .rst_n(rst_n),
       .enq (enq),
       .deq (deq),
-      .inp_data({16'b0, inp_data}),
+      .inp_data(inp_data),
       .out_data(out_data),
       .full(),
       .empty(),
+//      .ready(),
       .elem_cnt(count)
    );
 

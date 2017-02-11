@@ -61,12 +61,12 @@ module dummy_mc #(
    always @(posedge clk) begin
       if(rq_vld) begin // Has a valid request
          if(rq_cmd == AEMC_CMD_WR8) begin
-            $display("MEMORY: Write request at %d, Data: %h", rq_vadr, rq_data);
+//            $display("MEMORY: Write request at %d, Data: %h", rq_vadr, rq_data);
             mem[rq_vadr>>3] = rq_data;
             mc_rs_cmd = MCAE_CMD_WR_CMP;
          end
          else if(rq_cmd == AEMC_CMD_RD8) begin
-            $display("MEMORY: Read request at %d, Data: %h", rq_vadr, mem[rq_vadr>>3]);
+//            $display("MEMORY: Read request at %d, Data: %h", rq_vadr, mem[rq_vadr>>3]);
             mc_rs_cmd = MCAE_CMD_RD8_DATA;
          end
       end
@@ -74,7 +74,7 @@ module dummy_mc #(
 
       mc_rs_scmd = (rq_vld) ? rq_scmd : 0;
       mc_rs_rtnctl = (rq_vld) ? rq_rtnctl : 0;
-      mc_rs_data = (rq_vld) ? mem[rq_vadr] : 0;
+      mc_rs_data = (rq_vld) ? mem[rq_vadr>>3] : 0;
       mc_rs_vld = rq_vld;
 
       mc_rq_stall = 0;
