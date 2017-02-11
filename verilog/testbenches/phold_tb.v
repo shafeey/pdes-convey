@@ -10,7 +10,7 @@ module phold_tb;
    localparam LP_MASK = 8'h7F;
    localparam NUM_MEMCALL = 4'd1;
    localparam FIXED_DELAY = 8'd10;
-   localparam COREMASK = 64'h000000000000FFFF;
+   localparam COREMASK = 64'hFFFFFFFFFFFFFFFF;
    
    reg clk;
    reg rst_n;
@@ -41,6 +41,7 @@ module phold_tb;
    wire [63:0] total_stalls;
    wire [63:0] total_antimsg;
    wire [63:0] total_q_conf;
+   wire [63:0] mem_hist_conf;
    wire [63:0] avg_proc_time;
    wire [63:0] avg_mem_time;
    wire [63:0] avg_hist_time;
@@ -66,6 +67,7 @@ module phold_tb;
       .total_stalls ( total_stalls),
       .total_antimsg ( total_antimsg),
       .total_q_conf ( total_q_conf ),
+      .mem_hist_conf ( mem_hist_conf ),
       .avg_mem_time (avg_mem_time),
       .avg_hist_time (avg_hist_time),
       .avg_proc_time (avg_proc_time),
@@ -131,12 +133,16 @@ module phold_tb;
       $display("Total events = %d", total_events);
       $display("Total anti-messages = %d", total_antimsg );
       $display("Total stalls = %d", total_stalls);
+      $display("Average process time for cores", avg_proc_time );
+      $display("Average memory access time = %d", avg_mem_time);
+      $display("Average history access time = %d", avg_hist_time);
       $display("Contention at queue = %d", total_q_conf[63:42] << 3 );
       $display("Contention at queue rcv= %d", total_q_conf[41:21] << 3 );
       $display("Contention at queue send = %d", total_q_conf[20:0] << 3);
       $display("Average process time for cores", avg_proc_time );
       $display("Average memory access time = %d", avg_mem_time);
       $display("Average history access time = %d", avg_hist_time);
+      $display("Contention at memory interface = %d", mem_hist_conf[63:32]);
       $finish;
    end
    

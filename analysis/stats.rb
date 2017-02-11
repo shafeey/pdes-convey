@@ -14,8 +14,8 @@ ARGV.each do |a|
 end
 
 NUM_CORE = 16
-NUM_LP = 64
-Q_SIZE = 127
+NUM_LP = 256
+Q_SIZE = 254
 
 qc = Array.new(Q_SIZE + 1, 0)
 core_time = Array.new(NUM_CORE, -1)
